@@ -164,6 +164,7 @@
 
             &__mobile {
                 display: flex;
+                text-align: center;
             }
 
 
@@ -192,7 +193,7 @@
         padding: 12px 0;
 
         &__tab {
-            padding: 0 16px 16px;
+            padding: 0 12px 16px;
 
             &:nth-child(n + 4) {
                 display: none;

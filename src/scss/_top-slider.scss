@@ -80,6 +80,12 @@
         &__team {
             width: 150px;
             height: 150px;
+            background: #fff;
+            border-radius: 100%;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         &__match {
@@ -135,6 +141,7 @@
                 span {
                     font-size: 16px;
                     opacity: 0.6;
+                    text-align: center;
                 }
             }
         }
@@ -186,6 +193,7 @@
             span {
                 opacity: 0.6;
                 font-size: 14px;
+                text-align: center;
             }
         }
     }

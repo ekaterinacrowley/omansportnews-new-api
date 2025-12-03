@@ -132,6 +132,7 @@ async function fetchNewsWithCache(url, cacheKey) {
 }
 
 function createTopicButtons() {
+  if (!topicsContainer) return;
   // очистим контейнер (на случай повторного вызова)
   topicsContainer.innerHTML = '';
   topics.forEach(t => {
@@ -222,6 +223,7 @@ function renderArticles(articles) {
 }
 
 async function loadAllNews() {
+  if (!newsContainer) return;
   newsContainer.innerHTML = '<p>Загрузка всех новостей...</p>';
   
   // Пытаемся получить все новости из кеша
@@ -280,6 +282,7 @@ async function loadAllNews() {
 }
 
 async function loadNews(q = 'All') {
+  if (!newsContainer) return;
   if (q === 'All') {
     await loadAllNews();
     return;

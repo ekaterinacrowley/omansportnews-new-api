@@ -171,4 +171,16 @@
     }
 
   }
+  footer {
+    padding: 40px 275px 40px 0;
+
+
+      @media (max-width: 1440px) and (min-width: 767px) {
+            font-size: 1.111vw;
+            padding: 2.778vw  19.097vw 2.778vw 0;
+    }
+    @media (max-width: 767px) {
+            padding: 40px 8px 100px;
+    }
+}
 }

@@ -188,10 +188,11 @@ document.addEventListener('DOMContentLoaded', function() {
   const sidebar = document.querySelector('.sidebar');
   
   // Обработчик клика на сайдбар (делегирование событий)
-  sidebar.addEventListener('click', function(e) {
-    const link = e.target.closest('.sidebar__nav-item a[href^="#"]');
-    
-    if (!link) return;
+  if (sidebar) {
+    sidebar.addEventListener('click', function(e) {
+      const link = e.target.closest('.sidebar__nav-item a[href^="#"]');
+      
+      if (!link) return;
     
     e.preventDefault();
     
@@ -215,6 +216,7 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
   });
+  }
 });
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -224,6 +226,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const qrContent = document.querySelector('.app-popup__content--qr');
     const androidContent = document.querySelector('.app-popup__content--android');
     const iosContent = document.querySelector('.app-popup__content--ios');
+    
+    // Выходим если элементы не найдены
+    if (!popup || !downloadBtn || !qrContent) return;
     
     // Функция для определения операционной системы
     function getOS() {
@@ -246,8 +251,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Сбрасываем к исходному состоянию (показываем QR блок)
         qrContent.style.display = 'flex';
-        androidContent.style.display = 'none';
-        iosContent.style.display = 'none';
+        if (androidContent) androidContent.style.display = 'none';
+        if (iosContent) iosContent.style.display = 'none';
     }
 
     // Функция скрытия попапа
@@ -273,9 +278,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Скрываем QR блок и показываем соответствующий блок загрузки
         qrContent.style.display = 'none';
         if (os === 'ios' || os === 'mac') {
-            iosContent.style.display = 'flex';
+            if (iosContent) iosContent.style.display = 'flex';
         } else {
-            androidContent.style.display = 'flex';
+            if (androidContent) androidContent.style.display = 'flex';
         }
     });
 
@@ -298,9 +303,11 @@ document.addEventListener('DOMContentLoaded', function() {
   const sidebar = document.querySelector('.sidebar');
   const sidebrLink = document.querySelector('.open-nav');
 
-  sidebrLink.addEventListener('click', function(e) {
-    sidebar.classList.toggle('open');
-  });
+  if (sidebrLink && sidebar) {
+    sidebrLink.addEventListener('click', function(e) {
+      sidebar.classList.toggle('open');
+    });
+  }
 
 });
 

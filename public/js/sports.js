@@ -19,6 +19,26 @@ const CACHE_KEYS = {
   STANDINGS: 'football_standings'
 };
 
+// Функция для показа Lottie анимации при загрузке
+function showLoadingAnimation(container) {
+  if (!container || typeof lottie === 'undefined') return;
+  try {
+    container.innerHTML = '<div class="lottie-loading" style="display:flex;justify-content:center;align-items:center;height:200px;"></div>';
+    const lottieContainer = container.querySelector('.lottie-loading');
+    if (lottieContainer) {
+      lottie.loadAnimation({
+        container: lottieContainer,
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        path: 'images/BallSport.json'
+      });
+    }
+  } catch (e) {
+    console.warn('Lottie animation error:', e);
+  }
+}
+
 // Выносим formatDate наружу, чтобы она была доступна везде
 function formatDate(date) {
   const year = date.getFullYear();
@@ -211,10 +231,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // --- Футбол --- 
 async function loadFootballMatches(dateStr) {
+  if (!footballContainer) return;
   // Если передана дата как строка, используем её, если объект Date - форматируем
   const dateToLoad = typeof dateStr === 'string' ? dateStr : formatDate(dateStr);
   
-  footballContainer.innerHTML = "<p>...</p>";
+  showLoadingAnimation(footballContainer);
   try {
     const data = await fetchWithCache(`/matches/football?date=${dateToLoad}`, `${CACHE_KEYS.FOOTBALL}_${dateToLoad}`);
     
@@ -311,7 +332,84 @@ function renderFootball(matches) {
 }
 
 // Функция для создания слайдов с завтрашними матчами
-function createTomorrowSwiperSlides() {
+// translations for slider labels (loaded dynamically)
+let _sliderTranslations = null;
+
+async function loadSliderTranslations() {
+  if (_sliderTranslations) return _sliderTranslations;
+
+  // candidate URLs to find translations.json
+  const candidates = [
+    '/i18n/translations.json',
+    'i18n/translations.json',
+    './i18n/translations.json',
+    window.location.pathname.replace(/[^/]*$/, '') + 'i18n/translations.json'
+  ];
+
+  for (const url of candidates) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const json = await res.json();
+      _sliderTranslations = json;
+      console.info('slider translations loaded from', url);
+      return _sliderTranslations;
+    } catch (e) {
+      // continue
+    }
+  }
+
+  // fallback to empty
+  _sliderTranslations = {};
+  console.warn('slider translations not loaded from any candidate path');
+  return _sliderTranslations;
+}
+
+function tSlider(key, lang) {
+  lang = lang || (document.body && document.body.getAttribute('data-lang')) || localStorage.getItem('siteLang') || 'en';
+  if (!_sliderTranslations) return key; // not loaded yet
+  // nested lookup like translations[lang][key]
+  try {
+    if (_sliderTranslations[lang] && _sliderTranslations[lang][key]) return _sliderTranslations[lang][key];
+    if (_sliderTranslations['en'] && _sliderTranslations['en'][key]) return _sliderTranslations['en'][key];
+  } catch (e) {}
+  return key;
+}
+
+function updateExistingSliderTranslations(lang) {
+  if (!lang) lang = (document.body && document.body.getAttribute('data-lang')) || localStorage.getItem('siteLang') || 'en';
+  // update timer labels
+  document.querySelectorAll('.slide__timer').forEach(timer => {
+    const daysLabel = timer.querySelector('.days span');
+    const hoursLabel = timer.querySelector('.hours span');
+    const minsLabel = timer.querySelector('.minutes span');
+    const secsLabel = timer.querySelector('.seconds span');
+    if (daysLabel) daysLabel.textContent = tSlider('slider.days', lang);
+    if (hoursLabel) hoursLabel.textContent = tSlider('slider.hours', lang);
+    if (minsLabel) minsLabel.textContent = tSlider('slider.minutes', lang);
+    if (secsLabel) secsLabel.textContent = tSlider('slider.seconds', lang);
+  });
+
+  // update buttons
+  document.querySelectorAll('.slide__btn--1').forEach(btn => btn.textContent = tSlider('slider.watchPlay', lang));
+  document.querySelectorAll('.slide__btn--2').forEach(btn => btn.textContent = tSlider('slider.remind', lang));
+}
+
+// Watch for language changes on body[data-lang] and update dynamic slider texts
+if (typeof MutationObserver !== 'undefined') {
+  const bodyObserver = new MutationObserver(muts => {
+    muts.forEach(m => {
+      if (m.type === 'attributes' && m.attributeName === 'data-lang') {
+        const lang = document.body.getAttribute('data-lang');
+        // if translations already loaded — update immediately, otherwise we'll update after load
+        updateExistingSliderTranslations(lang);
+      }
+    });
+  });
+  bodyObserver.observe(document.body, { attributes: true });
+}
+
+async function createTomorrowSwiperSlides() {
   const swiperWrapper = document.getElementById('macthSlider');
   
   if (!swiperWrapper) {
@@ -319,20 +417,30 @@ function createTomorrowSwiperSlides() {
     return;
   }
 
-  // Очищаем существующие слайды
-  swiperWrapper.innerHTML = '<div class="swiper-slide"><div class="slide"><div class="slide__content"><div class="loading">Loading tomorrow matches...</div></div></div></div>';
+  // Очищаем существующие слайды и показываем анимацию загрузки
+  swiperWrapper.innerHTML = '<div class="swiper-slide"><div class="slide"><div class="slide__content"><div class="lottie-loading" style="display:flex;justify-content:center;align-items:center;height:200px;"></div></div></div></div>';
+  lottie.loadAnimation({
+    container: swiperWrapper.querySelector('.lottie-loading'),
+    renderer: 'svg',
+    loop: true,
+    autoplay: true,
+    path: 'images/BallSport.json'
+  });
 
   // Получаем завтрашнюю дату
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowStr = formatDate(tomorrow);
 
+  // Ensure slider translations are loaded before rendering slides
+  await loadSliderTranslations();
+
   // Загружаем футбольные матчи на завтра
   fetch(`/matches/football?date=${tomorrowStr}`)
     .then(response => response.json())
     .then(data => {
       if (!data.response || data.response.length === 0) {
-        swiperWrapper.innerHTML = '<div class="swiper-slide"><div class="slide"><div class="slide__content"><div class="no-matches">No matches tomorrow</div></div></div></div>';
+        swiperWrapper.innerHTML = '<div class="swiper-slide"><div class="slide"><div class="slide__content"><div class="no-matches">No matches</div></div></div></div>';
         return;
       }
 
@@ -343,7 +451,7 @@ function createTomorrowSwiperSlides() {
       swiperWrapper.innerHTML = '';
 
       if (tomorrowMatches.length === 0) {
-        swiperWrapper.innerHTML = '<div class="swiper-slide"><div class="slide"><div class="slide__content"><div class="no-matches">No matches tomorrow</div></div></div></div>';
+        swiperWrapper.innerHTML = '<div class="swiper-slide"><div class="slide"><div class="slide__content"><div class="no-matches">No matches</div></div></div></div>';
         return;
       }
 
@@ -357,6 +465,8 @@ function createTomorrowSwiperSlides() {
         
         const slide = document.createElement('div');
         slide.className = 'swiper-slide';
+        const lang = (document.body && document.body.getAttribute('data-lang')) || localStorage.getItem('siteLang') || 'en';
+
         slide.innerHTML = `
           <div class="slide">
             <div class="slide__content">
@@ -383,29 +493,29 @@ function createTomorrowSwiperSlides() {
                 <div>${match.teams.away.name}</div>
               </div>
               <div class="slide__timer" data-date="${match.fixture.date}">
-                <div class="days">
+                  <div class="days">
                   <div>00</div>
-                  <span>Days</span>
+                  <span>${tSlider('slider.days', lang)}</span>
                 </div>
                 <span class="border">:</span>
                 <div class="hours">
                   <div>00</div>
-                  <span>Hours</span>
+                  <span>${tSlider('slider.hours', lang)}</span>
                 </div>
                 <span class="border">:</span>
                 <div class="minutes">
                   <div>00</div>
-                  <span>Minutes</span>
+                  <span>${tSlider('slider.minutes', lang)}</span>
                 </div>
                 <span class="border">:</span>
                 <div class="seconds">
                   <div>00</div>
-                  <span>Seconds</span>
+                  <span>${tSlider('slider.seconds', lang)}</span>
                 </div> 
               </div>
               <div class="slide__controls">
-                <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="slide__btn slide__btn--1">Watch & Play</a>
-                <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="slide__btn slide__btn--2">Remind Me</a>
+                <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="slide__btn slide__btn--1">${tSlider('slider.watchPlay', lang)}</a>
+                <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="slide__btn slide__btn--2">${tSlider('slider.remind', lang)}</a>
               </div>
             </div>
           </div>
@@ -418,10 +528,12 @@ function createTomorrowSwiperSlides() {
       
       // Запускаем таймеры
       setTimeout(startCountdownUpdates, 100);
+          // Подставляем переводы в уже созданные слайды (на случай, если язык был выбран до загрузки)
+          updateExistingSliderTranslations();
 
     })
     .catch(error => {
-      console.error('Error loading tomorrow matches:', error);
+      console.error('Error loading matches:', error);
       swiperWrapper.innerHTML = '<div class="swiper-slide"><div class="slide"><div class="slide__content"><div class="error">Error loading matches</div></div></div></div>';
     });
 }
@@ -518,6 +630,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // --- Крикет ---
 async function loadCricketMatches(dateStr) {
+  if (!cricketContainer) return;
   // Если передана дата как строка, используем её, если объект Date - форматируем
   const dateToLoad = typeof dateStr === 'string' ? dateStr : formatDate(dateStr);
   
@@ -525,7 +638,7 @@ async function loadCricketMatches(dateStr) {
   console.log("Received date parameter:", dateStr);
   console.log("Date to load:", dateToLoad);
   
-  cricketContainer.innerHTML = "<p>...</p>";
+  showLoadingAnimation(cricketContainer);
   try {
     const data = await fetchWithCache(`/matches/cricket?date=${dateToLoad}`, `${CACHE_KEYS.CRICKET}_${dateToLoad}`);
     console.log("Cricket API response:", data);
@@ -648,10 +761,11 @@ function renderCricket(matches, selectedDate) {
 
 // --- Баскетбол ---
 async function loadBasketballMatches(dateStr) {
+  if (!basketballContainer) return;
   // Если передана дата как строка, используем её, если объект Date - форматируем
   const dateToLoad = typeof dateStr === 'string' ? dateStr : formatDate(dateStr);
   
-  basketballContainer.innerHTML = "<p>...</p>";
+  showLoadingAnimation(basketballContainer);
   try {
     const data = await fetchWithCache(`/matches/basketball?date=${dateToLoad}`, `${CACHE_KEYS.BASKETBALL}_${dateToLoad}`);
     console.log("Basketball API response:", data);
@@ -707,10 +821,11 @@ async function loadBasketballMatches(dateStr) {
 }
 // --- Волейбол ---
 async function loadVolleyballMatches(dateStr) {
+  if (!volleyballContainer) return;
   // Если передана дата как строка, используем её, если объект Date - форматируем
   const dateToLoad = typeof dateStr === 'string' ? dateStr : formatDate(dateStr);
   
-  volleyballContainer.innerHTML = "<p>...</p>";
+  showLoadingAnimation(volleyballContainer);
   try {
     const data = await fetchWithCache(`/matches/volleyball?date=${dateToLoad}`, `${CACHE_KEYS.VOLLEYBALL}_${dateToLoad}`);
     // console.log("Volleyball API response:", data);
@@ -773,7 +888,7 @@ loadStandings(39, 2023);
 async function loadStandings(league = 39, season = 2023, containerId = 'leagueTable') {
    const container = document.getElementById(containerId);
    if (!container) return;
-   container.innerHTML = '<p>...</p>';
+   container.innerHTML = '<p>Loading...</p>';
 
    try {
      const data = await fetchWithCache(

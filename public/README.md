@@ -6,32 +6,9 @@ README — Как публиковать сайт (файлы из `public`) и 
 
 Подготовка
 ----------
-1. Файлы `index.html`, `i18n/translations.json`, `main.js`, `styles.css`, `images/` и т.д. уже находятся в папке `public` вместе с `server.js`.
+Файлы `index.html`, `i18n/translations.json`, `main.js`, `styles.css`, `images/` и т.д. уже находятся в папке `public` вместе с `server.js`.
 
-2. Создайте файл `.env` в папке `public` (не коммитить в репозиторий) со значениями переменных окружения, которые использует `server.js`:
-PORT=5000
-API_KEY=ваш_api_key
-CRICKET_API_KEY=ваш_cricket_key
-NEWS_API_KEY=ваш_news_key
 
-text
-
-3. В `server.js` убедитесь, что Express отдает файлы из папки `public`. Пример настройки статики:
-
-```js
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Отдаем статические файлы из текущей директории (public)
-app.use(express.static(__dirname));
-
-// SPA fallback
-app.get(/.*/, (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
 Развёртывание на VPS (Ubuntu) + systemd + Nginx
 
 Скопируйте всю папку public на сервер, например в /var/www/onesporst:
@@ -73,6 +50,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable onesporst
 sudo systemctl start onesporst
 sudo journalctl -u onesporst -f
+
 Настройте Nginx как реверс-прокси (пример /etc/nginx/sites-available/onesporst):
 
 nginx

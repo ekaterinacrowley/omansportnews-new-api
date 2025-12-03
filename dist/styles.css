@@ -588,6 +588,12 @@ header {
 .slider .slide__team {
   width: 150px;
   height: 150px;
+  background: #fff;
+  border-radius: 100%;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .slider .slide__match {
   display: flex;
@@ -636,6 +642,7 @@ header {
 .slider .slide__timer div span {
   font-size: 16px;
   opacity: 0.6;
+  text-align: center;
 }
 .slider .slide__controls {
   display: flex;
@@ -678,6 +685,7 @@ header {
 .slider .slide__mobile span {
   opacity: 0.6;
   font-size: 14px;
+  text-align: center;
 }
 .slider .swiper-pagination {
   bottom: 0 !important;
@@ -1805,6 +1813,7 @@ footer {
   }
   .slider .slide__mobile {
     display: flex;
+    text-align: center;
   }
   .slider .slide__timer div div {
     font-size: 20px;
@@ -1821,7 +1830,7 @@ footer {
     padding: 12px 0;
   }
   .sports__tab {
-    padding: 0 16px 16px;
+    padding: 0 12px 16px;
   }
   .sports__tab:nth-child(n+4) {
     display: none;
@@ -2191,6 +2200,23 @@ footer {
 [data-lang=pakistan] .teams__container,
 [data-lang=sa] .teams__container {
   margin-right: 0;
+}
+[data-lang=pakistan] footer,
+[data-lang=sa] footer {
+  padding: 40px 275px 40px 0;
+}
+@media (max-width: 1440px) and (min-width: 767px) {
+  [data-lang=pakistan] footer,
+  [data-lang=sa] footer {
+    font-size: 1.111vw;
+    padding: 2.778vw 19.097vw 2.778vw 0;
+  }
+}
+@media (max-width: 767px) {
+  [data-lang=pakistan] footer,
+  [data-lang=sa] footer {
+    padding: 40px 8px 100px;
+  }
 }
 
 /*# sourceMappingURL=styles.css.map */
