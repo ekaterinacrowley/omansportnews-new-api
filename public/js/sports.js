@@ -19,23 +19,79 @@ const CACHE_KEYS = {
   STANDINGS: 'football_standings'
 };
 
-// Функция для показа Lottie анимации при загрузке
+// Global loading overlay manager
+let globalLoadingOverlay = null;
+let loadingCounter = 0;
+
+// Функция для показа Lottie анимации при загрузке (попап с оверлеем)
 function showLoadingAnimation(container) {
   if (!container || typeof lottie === 'undefined') return;
+  
+  loadingCounter++;
+  
+  // Если оверлей уже существует, просто увеличиваем счетчик
+  if (globalLoadingOverlay) return;
+  
   try {
-    container.innerHTML = '<div class="lottie-loading" style="display:flex;justify-content:center;align-items:center;height:200px;"></div>';
-    const lottieContainer = container.querySelector('.lottie-loading');
-    if (lottieContainer) {
-      lottie.loadAnimation({
-        container: lottieContainer,
+    // Создаем оверлей с попапом
+    const overlay = document.createElement('div');
+    overlay.className = 'loading-overlay';
+    overlay.id = 'global-loading-overlay';
+    
+    const popover = document.createElement('div');
+    popover.className = 'loading-popover';
+    
+    const animContainer = document.createElement('div');
+    animContainer.className = 'loading-popover__animation';
+    animContainer.id = 'global-lottie-anim';
+    
+    const text = document.createElement('p');
+    text.className = 'loading-popover__text';
+    text.textContent = 'Загружаем данные...';
+    
+    popover.appendChild(animContainer);
+    popover.appendChild(text);
+    overlay.appendChild(popover);
+    document.body.appendChild(overlay);
+    
+    globalLoadingOverlay = overlay;
+    
+    // Загружаем Lottie анимацию
+    if (!window.globalLottieInstance) {
+      window.globalLottieInstance = lottie.loadAnimation({
+        container: animContainer,
         renderer: 'svg',
         loop: true,
         autoplay: true,
         path: 'images/BallSport.json'
       });
     }
+    
   } catch (e) {
     console.warn('Lottie animation error:', e);
+  }
+}
+
+// Функция для скрытия загрузочного попапа
+function hideLoadingAnimation(container) {
+  if (!container) return;
+  
+  loadingCounter--;
+  
+  // Скрываем оверлей только когда все загрузки завершены
+  if (loadingCounter <= 0 && globalLoadingOverlay) {
+    loadingCounter = 0;
+    globalLoadingOverlay.style.animation = 'fadeOut 0.3s ease-in-out forwards';
+    setTimeout(() => {
+      if (globalLoadingOverlay) {
+        globalLoadingOverlay.remove();
+        globalLoadingOverlay = null;
+      }
+      if (window.globalLottieInstance) {
+        window.globalLottieInstance.destroy();
+        window.globalLottieInstance = null;
+      }
+    }, 300);
   }
 }
 
@@ -238,6 +294,7 @@ async function loadFootballMatches(dateStr) {
   showLoadingAnimation(footballContainer);
   try {
     const data = await fetchWithCache(`/matches/football?date=${dateToLoad}`, `${CACHE_KEYS.FOOTBALL}_${dateToLoad}`);
+    hideLoadingAnimation(footballContainer);
     
     if (!data.response || data.response.length === 0) {
       footballContainer.innerHTML = `<p>No matches ${dateToLoad}</p>`;
@@ -245,6 +302,7 @@ async function loadFootballMatches(dateStr) {
     }
     renderFootball(data.response);
   } catch (e) {
+    hideLoadingAnimation(footballContainer);
     footballContainer.innerHTML = "<p>Error</p>";
     console.error(e);
   }
@@ -417,10 +475,30 @@ async function createTomorrowSwiperSlides() {
     return;
   }
 
-  // Очищаем существующие слайды и показываем анимацию загрузки
-  swiperWrapper.innerHTML = '<div class="swiper-slide"><div class="slide"><div class="slide__content"><div class="lottie-loading" style="display:flex;justify-content:center;align-items:center;height:200px;"></div></div></div></div>';
+  // Создаем оверлей с попапом для загрузки
+  const overlay = document.createElement('div');
+  overlay.className = 'loading-overlay';
+  overlay.id = 'slider-loading-overlay';
+  
+  const popover = document.createElement('div');
+  popover.className = 'loading-popover';
+  
+  const animContainer = document.createElement('div');
+  animContainer.className = 'loading-popover__animation';
+  animContainer.id = 'slider-lottie-' + Math.random();
+  
+  const text = document.createElement('p');
+  text.className = 'loading-popover__text';
+  text.textContent = 'Загружаем завтрашние матчи...';
+  
+  popover.appendChild(animContainer);
+  popover.appendChild(text);
+  overlay.appendChild(popover);
+  document.body.appendChild(overlay);
+  
+  // Загружаем Lottie анимацию
   lottie.loadAnimation({
-    container: swiperWrapper.querySelector('.lottie-loading'),
+    container: animContainer,
     renderer: 'svg',
     loop: true,
     autoplay: true,
@@ -528,13 +606,33 @@ async function createTomorrowSwiperSlides() {
       
       // Запускаем таймеры
       setTimeout(startCountdownUpdates, 100);
-          // Подставляем переводы в уже созданные слайды (на случай, если язык был выбран до загрузки)
-          updateExistingSliderTranslations();
+      // Подставляем переводы в уже созданные слайды (на случай, если язык был выбран до загрузки)
+      updateExistingSliderTranslations();
+      
+      // Скрываем оверлей загрузки
+      setTimeout(() => {
+        const loadingOverlay = document.getElementById('slider-loading-overlay');
+        if (loadingOverlay && loadingOverlay.parentNode) {
+          loadingOverlay.style.opacity = '0';
+          loadingOverlay.style.pointerEvents = 'none';
+          loadingOverlay.remove();
+        }
+      }, 100);
 
     })
     .catch(error => {
       console.error('Error loading matches:', error);
       swiperWrapper.innerHTML = '<div class="swiper-slide"><div class="slide"><div class="slide__content"><div class="error">Error loading matches</div></div></div></div>';
+      
+      // Скрываем оверлей загрузки при ошибке
+      setTimeout(() => {
+        const loadingOverlay = document.getElementById('slider-loading-overlay');
+        if (loadingOverlay && loadingOverlay.parentNode) {
+          loadingOverlay.style.opacity = '0';
+          loadingOverlay.style.pointerEvents = 'none';
+          loadingOverlay.remove();
+        }
+      }, 100);
     });
 }
 
@@ -641,6 +739,7 @@ async function loadCricketMatches(dateStr) {
   showLoadingAnimation(cricketContainer);
   try {
     const data = await fetchWithCache(`/matches/cricket?date=${dateToLoad}`, `${CACHE_KEYS.CRICKET}_${dateToLoad}`);
+    hideLoadingAnimation(cricketContainer);
     console.log("Cricket API response:", data);
     
     if (!data.data || data.data.length === 0) {
@@ -652,6 +751,7 @@ async function loadCricketMatches(dateStr) {
     console.log(`Found ${data.data.length} matches, proceeding to render`);
     renderCricket(data.data, dateToLoad);
   } catch (e) {
+    hideLoadingAnimation(cricketContainer);
     console.error("Error loading matches:", e);
     cricketContainer.innerHTML = "<p>Error</p>";
   }
@@ -768,6 +868,7 @@ async function loadBasketballMatches(dateStr) {
   showLoadingAnimation(basketballContainer);
   try {
     const data = await fetchWithCache(`/matches/basketball?date=${dateToLoad}`, `${CACHE_KEYS.BASKETBALL}_${dateToLoad}`);
+    hideLoadingAnimation(basketballContainer);
     console.log("Basketball API response:", data);
 
     const leagues = Array.isArray(data.data) ? data.data.slice(0, 3) : [];
@@ -815,6 +916,7 @@ async function loadBasketballMatches(dateStr) {
     });
 
   } catch (e) {
+    hideLoadingAnimation(basketballContainer);
     console.error("Basketball fetch error:", e);
     basketballContainer.innerHTML = "<p>Error</p>";
   }
@@ -828,6 +930,7 @@ async function loadVolleyballMatches(dateStr) {
   showLoadingAnimation(volleyballContainer);
   try {
     const data = await fetchWithCache(`/matches/volleyball?date=${dateToLoad}`, `${CACHE_KEYS.VOLLEYBALL}_${dateToLoad}`);
+    hideLoadingAnimation(volleyballContainer);
     // console.log("Volleyball API response:", data);
 
     const leagues = Array.isArray(data.data) ? data.data.slice(0, 3) : [];
@@ -874,6 +977,7 @@ async function loadVolleyballMatches(dateStr) {
     });
 
   } catch (e) {
+    hideLoadingAnimation(volleyballContainer);
     console.error("Volleyball fetch error:", e);
     volleyballContainer.innerHTML = "<p>Error</p>";
   }
