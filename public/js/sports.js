@@ -24,7 +24,6 @@ const CACHE_KEYS = {
   BASKETBALL: 'basketball_matches',
   ESPORTS: 'esports_matches',
   VOLLEYBALL: 'volleyball_matches',
-  STANDINGS: 'football_standings',
   SPORTS: 'sports_list'
 };
 
@@ -1076,7 +1075,7 @@ async function loadCricketMatches(dateStr) {
         const resultData = await fetchWithCache(
           `/api/results?sportId=${sportId}&dateFrom=${gtStart}&dateTo=${ltStart}&lng=en`,
           `${CACHE_KEYS.CRICKET}_results_${dateToLoad}`,
-          { timeout: REQUEST_TIMEOUTS.HEAVY, retries: 1 }
+          { timeout: REQUEST_TIMEOUTS.HEAVY, retries: 0, quiet: true }
         );
         items = (resultData.items || [])
           .filter(item => item.type === 1 || item.type == null)
@@ -1737,140 +1736,7 @@ async function loadEsportsMatches(dateStr) {
 }
 
 // Функция загрузки и отображения таблицы
-async function loadStandings(league = 39, season = 2023, containerId = 'leagueTable') {
-   const container = document.getElementById(containerId);
-   if (!container) return;
-   container.innerHTML = '<p>Loading...</p>';
 
-   try {
-     const data = await fetchWithCache(
-       `/api/results-sports?leagueId=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}`,
-       `${CACHE_KEYS.STANDINGS}_${league}_${season}`,
-       { timeout: 15000 }
-     );
-     
-     console.log('Standings response:', data);
-
-     if (!data.items || data.items.length === 0) {
-       container.innerHTML = '<p>No standings data available</p>';
-       return;
-     }
-
-     // Создаём таблицу
-     const table = document.createElement('div');
-     table.className = 'tab__content';
-
-     const thead = document.createElement('div');
-     thead.className = 'tab__head';
-     thead.innerHTML = `
-         <div class="tab__club">
-            <div>#</div>
-            <div>Club</div>
-         </div>
-          <div class="tab__digits">
-            <div>W</div>
-            <div>D</div>
-            <div>L</div>
-            <div>Poin</div>
-         </div>
-         <div>Last Match</div>
-     `;
-     table.appendChild(thead);
-
-     const tbody = document.createElement('div');
-     tbody.className = 'tab__body';
-
-     // Создаём контейнер для логотипов в отдельном месте
-     const logosContainer = document.getElementById('teamsLogos');
-     if (logosContainer) {
-       logosContainer.innerHTML = ''; // Очищаем контейнер перед добавлением
-       
-       // Заполняем логотипы
-       data.items.forEach(row => {
-         const teamName = row.teamName || row.team || '';
-         if (teamName) {
-           const logoElement = document.createElement('div');
-           logoElement.className = 'teams__item';
-           logoElement.innerHTML = `
-             <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank"><img src="/api/img/opponent/${teamName.replace(/\s+/g, '').toLowerCase()}.png" 
-                  alt="${teamName}" 
-                  title="${teamName}"
-                  onerror="this.style.display='none'"></a>
-           `;
-           logosContainer.appendChild(logoElement);
-         }
-       });
-     }
-
-     data.items.forEach(row => {
-       // Попытка достать подробную статистику
-       const win = row.wins ?? row.win ?? '';
-       const draw = row.draws ?? row.draw ?? '';
-       const lose = row.losses ?? row.lose ?? '';
-       const points = row.points ?? row.pts ?? '';
-       const form = row.form ?? '';
-
-       // Преобразуем форму в цветные span'ы
-       let formHTML = '';
-       if (form) {
-         formHTML = form.split('').map(char => {
-           let className = '';
-           switch(char) {
-             case 'W':
-               className = 'win';
-               break;
-             case 'D':
-               className = 'draw';
-               break;
-             case 'L': 
-               className = 'lose';
-               break;
-             default:
-               className = '';
-           }
-           return `<span class="form-badge ${className}">${char}</span>`;
-         }).join('');
-       }
-
-       const tr = document.createElement('div');
-       tr.className = "tab__row";
-       tr.innerHTML = `
-         <div class="tab__club">
-         <div>${row.position ?? row.rank ?? ''}</div>
-         <div class="tab__team">
-           <div class="tab__team-name">${row.teamName ?? row.team ?? ''}</div>
-         </div> 
-         </div>
-         <div class="tab__digits">
-            <div>${win}</div>
-            <div>${draw}</div>
-            <div>${lose}</div>
-            <div>${points}</div>
-         </div>
-         <div class="tab__form">${formHTML}</div>
-       `;
-       tbody.appendChild(tr);
-     });
-
-     table.appendChild(tbody);
-
-     container.innerHTML = '';
-     const header = document.createElement('div');
-     header.className = 'tab__header';
-     
-     header.innerHTML = `
-       <div class="tab__league">Standings — ${season}</div>
-       <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="tab__link">View All</a>
-     `;
-     
-     container.appendChild(header);
-     container.appendChild(table);
-
-   } catch (err) {
-     console.error('Error loading standings:', err);
-     container.innerHTML = '<p>Error loading standings. Please try again later.</p>';
-   }
-}
 
 // Функция для принудительного обновления кеша (можно вызвать из консоли)
 function clearCache() {
@@ -2014,16 +1880,8 @@ async function loadTeamsLogos() {
   }
 }
 
-// Загружаем турнирную таблицу с обработкой ошибок
+// Загружаем логотипы команд
 document.addEventListener('DOMContentLoaded', function() {
-  // Загружаем таблицу с задержкой, чтобы не перегружать API
-  setTimeout(() => {
-    loadStandings(39, 2023).catch(err => {
-      console.warn('Failed to load standings:', err);
-    });
-  }, 1000);
-
-  // Загружаем логотипы команд
   setTimeout(() => {
     loadTeamsLogos().catch(err => console.warn('Failed to load teams logos:', err));
   }, 1500);

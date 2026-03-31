@@ -337,79 +337,14 @@ app.get("/matches/volleyball", async (req, res) => {
   }
 });
 
-
-// Эндпоинт для таблицы (standings) — прокси для api-football (v3)
-app.get('/standings/football', async (req, res) => {
-  const league = req.query.league;
-  const season = req.query.season;
-
-  if (!league || !season) {
-    return res.status(400).json({ error: 'league и season обязательны' });
-  }
-
-  try {
-    const url = `https://v3.football.api-sports.io/standings?league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'x-apisports-key': API_KEY, // Замените на свой API ключ
-        'Content-Type': 'application/json'
-      }
-    });
-
-    const text = await response.text();
-    console.log(`[DEBUG] Standings API status: ${response.status}`);
-    console.log(`[DEBUG] Standings API body (full response):`, text); // Выводим весь ответ
-
-    if (!response.ok) {
-      return res.status(response.status).json({ error: 'Remote API error', status: response.status, raw: text });
-    }
-
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      console.error('Invalid JSON from standings API', e);
-      return res.status(502).json({ error: 'Invalid JSON from standings API', raw: text });
-    }
-
-    // Выводим весь разобранный объект
-    console.log(`[DEBUG] Parsed response data:`, data);
-
-    const result = {
-      league: (data?.response?.[0]?.league) || null,
-      season: season,
-      standings: []
-    };
-
-    const rawStandings = (Array.isArray(data.response) ? data.response.flatMap(r => {
-      if (r?.league?.standings && Array.isArray(r.league.standings)) return r.league.standings.flat();
-      if (r?.standings && Array.isArray(r.standings)) return r.standings.flat();
-      return [];
-    }) : []);
-
-    result.standings = rawStandings.map(item => ({
-      rank: item.rank ?? item.position ?? null,
-      team: item.team?.name ?? item.team?.short ?? item.name ?? null,
-      teamId: item.team?.id ?? null,
-      logo: item.team?.logo ?? null,
-      points: item.points ?? item.pts ?? null,
-      form: item.form ?? null,
-      all: item.all ?? item.matches ?? null
-    }));
-
-    res.json(result);
-  } catch (err) {
-    console.error('Standings proxy error:', err.stack || err);
-    res.status(500).json({ error: 'Standings proxy error', message: err.message || String(err) });
-  }
-});
-
 // Новости по теме
 app.get("/news", async (req, res) => {
   try {
     const topic = req.query.q || "Football";
-    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic)}&apiKey=${NEWS_KEY}`;
+    // Map site lang codes to NewsAPI supported language codes
+    const LANG_MAP = { en: 'en', sa: 'ar', india: 'en', bangladesh: 'en', pakistan: 'en' };
+    const language = LANG_MAP[req.query.lang] || 'en';
+    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic)}&language=${language}&apiKey=${NEWS_KEY}`;
     const response = await axios.get(url);
 
     let articles = response.data.articles.map(article => ({
@@ -566,7 +501,8 @@ app.get("/api/results", async (req, res) => {
 
   } catch (e) {
     console.error("RESULTS ERROR:", e.response?.data || e.message);
-    if (String(req.query.sportId || '') === '40') {
+    const sid = String(req.query.sportId || '');
+    if (sid === '40' || sid === '66') {
       return res.json({ items: [] });
     }
     res.status(500).json({ error: "results error", details: e.response?.data || e.message });

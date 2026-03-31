@@ -413,6 +413,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const lang = btn.getAttribute('data-lang');
             applyLang(lang);
             saveLang(lang);
+            document.dispatchEvent(new CustomEvent('langChanged', { detail: { lang } }));
         });
     });
 
@@ -422,6 +423,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const saved = getSavedLang();
         const initial = saved || (langButtons[0] && langButtons[0].getAttribute('data-lang')) || 'en';
         applyLang(initial);
+        document.dispatchEvent(new CustomEvent('langChanged', { detail: { lang: initial } }));
     })();
 });
 

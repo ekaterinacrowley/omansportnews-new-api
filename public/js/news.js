@@ -3,6 +3,11 @@
 
 // topics будет загружаться из `src/i18n/translations.json` на основе текущего языка
 let topics = [];
+let currentActiveLang = null;
+
+function getCurrentLang() {
+  return document.body.getAttribute('data-lang') || localStorage.getItem('siteLang') || 'en';
+}
 
 async function loadTopicsFromTranslations() {
   const STORAGE_KEY = 'siteLang';
@@ -224,10 +229,12 @@ function renderArticles(articles) {
 
 async function loadAllNews() {
   if (!newsContainer) return;
+  const lang = getCurrentLang();
   newsContainer.innerHTML = '<p>Загрузка всех новостей...</p>';
   
   // Пытаемся получить все новости из кеша
-  const cachedAllNews = getCachedData(CACHE_KEYS_NEWS.NEWS_ALL);
+  const allCacheKey = `news_all_${lang}`;
+  const cachedAllNews = getCachedData(allCacheKey);
   if (cachedAllNews) {
     console.log('Using cached all news');
     renderArticles(cachedAllNews);
@@ -239,8 +246,8 @@ async function loadAllNews() {
     const sportTopics = ['Football', 'Cricket', 'eSports', 'Basketball', 'Volleyball', 'Tennis', 'MMA', 'Highlights', 'Trending'];
     const allPromises = sportTopics.map(topic => 
       fetchNewsWithCache(
-        `/news?q=${encodeURIComponent(topic)}`,
-        CACHE_KEYS_NEWS[`NEWS_${topic.toUpperCase().replace(' ', '_')}`]
+        `/news?q=${encodeURIComponent(topic)}&lang=${encodeURIComponent(lang)}`,
+        `news_${lang}_${topic.toLowerCase().replace(/\s+/g, '_')}`
       )
         .then(data => data.articles || [])
         .catch(err => {
@@ -270,7 +277,7 @@ async function loadAllNews() {
     const shuffledArticles = shuffleArray(uniqueArticles);
     
     // Кешируем объединенный результат
-    setCachedData(CACHE_KEYS_NEWS.NEWS_ALL, shuffledArticles);
+    setCachedData(allCacheKey, shuffledArticles);
     
     // Отображаем перемешанные новости
     renderArticles(shuffledArticles);
@@ -287,12 +294,12 @@ async function loadNews(q = 'All') {
     await loadAllNews();
     return;
   }
-  
+  const lang = getCurrentLang();
   newsContainer.innerHTML = '<p>Загрузка новостей...</p>';
   try {
-    const cacheKey = CACHE_KEYS_NEWS[`NEWS_${q.toUpperCase().replace(' ', '_')}`];
+    const cacheKey = `news_${lang}_${q.toLowerCase().replace(/\s+/g, '_')}`;
     const data = await fetchNewsWithCache(
-      `/news?q=${encodeURIComponent(q)}`,
+      `/news?q=${encodeURIComponent(q)}&lang=${encodeURIComponent(lang)}`,
       cacheKey
     );
     
@@ -315,6 +322,7 @@ async function loadNews(q = 'All') {
 
 // Инициализация
 document.addEventListener('DOMContentLoaded', async () => {
+  currentActiveLang = getCurrentLang();
   await loadTopicsFromTranslations();
   createTopicButtons();
   // имитируем клик по первой теме (All)
@@ -337,3 +345,19 @@ function clearNewsCache() {
 
 // Добавляем глобальную функцию для очистки кеша
 window.clearNewsCache = clearNewsCache;
+
+// При смене языка — обновляем темы и новости
+document.addEventListener('langChanged', async (e) => {
+  const newLang = (e.detail && e.detail.lang) || getCurrentLang();
+  if (newLang === currentActiveLang) return; // язык не изменился — пропускаем
+  currentActiveLang = newLang;
+  // Очищаем новостной кеш чтобы подгрузить статьи на новом языке
+  Object.keys(localStorage).forEach(k => {
+    if (k.startsWith('news_')) localStorage.removeItem(k);
+  });
+  await loadTopicsFromTranslations();
+  createTopicButtons();
+  const firstBtn = topicsContainer && topicsContainer.querySelector('button');
+  if (firstBtn) firstBtn.click();
+  else loadNews('All');
+});
