@@ -1,0 +1,36 @@
+<div class="sports">
+   <div class="sports__tabs">
+      <div class="sports__tab sports__tab--active" data-sport="football" data-i18n="sports.football">Football</div>
+      <div class="sports__tab" data-sport="cricket" data-i18n="sports.cricket">Cricket</div>
+      <div class="sports__tab" data-sport="basketball" data-i18n="sports.basketball">Basketball</div>
+      <a class="sports__tab" data-sport="esports" data-i18n="sports.esports" href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank">eSports</a>
+      <div class="sports__tab" data-sport="volleyball" data-i18n="sports.volleyball">Volleyball</div>
+      <a class="sports__tab" data-sport="others" data-i18n="sports.others" href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank">Others</a>
+   </div> 
+   <div class="sports__container">
+         <div class="sports__content sports__content--active" data-container="football">
+            <div class="date-picker" id="footballDatePicker">
+               <button class="prevDay"><span data-i18n="date.yesterday">Yesterday</span></button>
+               <button class="todayButton active" data-i18n="date.today">Today</button> <!-- Кнопка для загрузки сегодняшних матчей -->
+               <button class="nextDay"><span data-i18n="date.tomorrow">Tomorrow</span></button>
+            </div>
+            <div class="leagues" id="footballLeagues"></div>
+         </div>
+         <div class="sports__content" data-container="cricket">
+            <div class="date-picker" id="cricketDatePicker">
+               <button class="prevPrevDay"><span data-i18n="date.dayBeforeYesterday">Day before yesterday</span></button>
+               <button class="prevDay"><span data-i18n="date.yesterday">Yesterday</span></button>
+               <button class="todayButton active" data-i18n="date.today">Today</button> <!-- Кнопка для загрузки сегодняшних матчей -->
+            </div>
+            <div class="leagues leagues--cricket" id="cricketLeagues"></div>
+         </div>
+         <div class="sports__content" data-container="basketball">
+            <div class="leagues " id="basketballLeagues"></div>
+         </div>
+         <div class="sports__content" data-container="esports"></div>
+          <div class="sports__content" data-container="volleyball">
+            <div class="leagues" id="volleyballLeagues"></div>
+          </div>
+          <div class="sports__content" data-container="others"></div>
+   </div>
+</div>

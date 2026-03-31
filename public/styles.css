@@ -588,6 +588,12 @@ header {
 .slider .slide__team {
   width: 150px;
   height: 150px;
+  background: #fff;
+  border-radius: 100%;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .slider .slide__match {
   display: flex;
@@ -636,6 +642,7 @@ header {
 .slider .slide__timer div span {
   font-size: 16px;
   opacity: 0.6;
+  text-align: center;
 }
 .slider .slide__controls {
   display: flex;
@@ -678,6 +685,7 @@ header {
 .slider .slide__mobile span {
   opacity: 0.6;
   font-size: 14px;
+  text-align: center;
 }
 .slider .swiper-pagination {
   bottom: 0 !important;
@@ -1805,6 +1813,7 @@ footer {
   }
   .slider .slide__mobile {
     display: flex;
+    text-align: center;
   }
   .slider .slide__timer div div {
     font-size: 20px;
@@ -1821,7 +1830,7 @@ footer {
     padding: 12px 0;
   }
   .sports__tab {
-    padding: 0 16px 16px;
+    padding: 0 12px 16px;
   }
   .sports__tab:nth-child(n+4) {
     display: none;
@@ -2191,6 +2200,96 @@ footer {
 [data-lang=pakistan] .teams__container,
 [data-lang=sa] .teams__container {
   margin-right: 0;
+}
+[data-lang=pakistan] footer,
+[data-lang=sa] footer {
+  padding: 40px 275px 40px 0;
+}
+@media (max-width: 1440px) and (min-width: 767px) {
+  [data-lang=pakistan] footer,
+  [data-lang=sa] footer {
+    font-size: 1.111vw;
+    padding: 2.778vw 19.097vw 2.778vw 0;
+  }
+}
+@media (max-width: 767px) {
+  [data-lang=pakistan] footer,
+  [data-lang=sa] footer {
+    padding: 40px 8px 100px;
+  }
+}
+
+/* Loading popover with Lottie animation */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.loading-popover {
+  background: var(--bg);
+  border-radius: 16px;
+  padding: 40px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  max-width: 300px;
+  width: 90%;
+  text-align: center;
+  animation: slideUp 0.3s ease-in-out;
+}
+
+.loading-popover__animation {
+  width: 150px;
+  height: 150px;
+  margin: 0 auto 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.loading-popover__text {
+  font-size: 14px;
+  color: var(--vulcan);
+  opacity: 0.7;
+  margin: 0;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+/* Hide lottie-loading div when used in popover */
+.lottie-loading[data-style=popover] {
+  display: none;
 }
 
 /*# sourceMappingURL=styles.css.map */

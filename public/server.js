@@ -5,6 +5,8 @@ import axios from 'axios';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { exec } from 'child_process';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,6 +19,54 @@ const API_KEY = process.env.API_KEY || '76b6f309a4d1ff9512ec99c2dd0ad8e5';
 const CRICKET_KEY = process.env.CRICKET_API_KEY || 'eebe5ade-a481-477d-8f02-440685b4cd53';
 const NEWS_KEY = process.env.NEWS_API_KEY || "9455fa9a233f46f290770aa1018c93e6";
 
+const REF = process.env.REF
+const CLIENT_ID = process.env.CLIENT_ID
+const CLIENT_SECRET = process.env.CLIENT_SECRET
+
+let TOKEN = null
+let TOKEN_EXPIRE = 0
+
+async function getToken(){
+  if(TOKEN && Date.now() < TOKEN_EXPIRE) return TOKEN
+
+  const res = await axios.post(
+    "https://cpservm.com/gateway/token",
+    new URLSearchParams({
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET
+    }),
+    { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+  )
+
+  TOKEN = res.data.access_token
+  TOKEN_EXPIRE = Date.now() + (res.data.expires_in * 1000)
+
+  return TOKEN
+}
+
+let sportsCache = null
+
+async function getSports() {
+  if (sportsCache) return sportsCache
+
+  const token = await getToken()
+
+  const response = await axios.get(
+    `https://cpservm.com/gateway/marketing/datafeed/directories/api/v2/sports?ref=${REF}`,
+    { headers:{ Authorization:`Bearer ${token}` } }
+  )
+
+  sportsCache = response.data.items || []
+
+  return sportsCache
+}
+
+async function getSportId(name) {
+  const sports = await getSports()
+  const sport = sports.find(s => s.name.toLowerCase().includes(name.toLowerCase()))
+  return sport ? sport.id : null
+}
+
 // CORS
 app.use(cors());
 
@@ -26,29 +76,60 @@ app.get("/matches/football", async (req, res) => {
   if (!date) return res.status(400).json({ error: "date обязателен" });
 
   try {
-    const response = await fetch(`https://v3.football.api-sports.io/fixtures?date=${date}`, {
-      headers: {
-        'x-rapidapi-key': API_KEY, 
-        'x-rapidapi-host': 'v3.football.api-sports.io',
-      },
-    });
+    const sportId = await getSportId('football')
+    if (!sportId) return res.status(404).json({ error: "Football sport not found" })
 
-    const text = await response.text();
-    console.log(`[DEBUG] Football API status: ${response.status}`);
-    console.log(`[DEBUG] Football API body: ${text.slice(0, 1000)}`);
+    const token = await getToken()
 
-    if (!response.ok) {
-      return res.status(response.status).json({ error: `Football API error ${response.status}`, raw: text });
-    }
+    const gtStart = Math.floor(new Date(date).getTime() / 1000)
+    const ltStart = gtStart + 24*3600
 
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      return res.status(502).json({ error: "Invalid JSON", raw: text });
-    }
+    const response = await axios.get(
+      "https://cpservm.com/gateway/marketing/datafeed/prematch/api/v2/sportevents",
+      {
+        params: {
+          ref: REF,
+          sportIds: sportId,
+          lng: "en",
+          gtStart,
+          ltStart
+        },
+        headers:{
+          Authorization:`Bearer ${token}`
+        }
+      }
+    )
 
-    res.json(data);
+    const items = response.data.items || []
+    const leaguesMap = {}
+    items.forEach(event => {
+      const leagueId = event.tournamentId
+      if (!leaguesMap[leagueId]) {
+        leaguesMap[leagueId] = {
+          league: {
+            id: leagueId,
+            name: event.tournamentName,
+            logo: null
+          },
+          fixtures: []
+        }
+      }
+      leaguesMap[leagueId].fixtures.push({
+        fixture: {
+          id: event.id,
+          date: new Date(event.startTime * 1000).toISOString(),
+          status: { long: 'Not Started' }
+        },
+        teams: {
+          home: { name: event.homeTeamName },
+          away: { name: event.awayTeamName }
+        },
+        goals: { home: null, away: null }
+      })
+    })
+
+    res.json({ response: Object.values(leaguesMap) })
+
   } catch (err) {
     console.error("Football proxy error:", err);
     res.status(500).json({ error: "Football proxy error" });
@@ -58,45 +139,46 @@ app.get("/matches/football", async (req, res) => {
 // --- Крикет ---
 app.get("/matches/cricket", async (req, res) => {
   try {
-    const response = await fetch(
-      `https://api.cricapi.com/v1/currentMatches?apikey=${CRICKET_KEY}&offset=0`
-    );
+    const sportId = await getSportId('cricket')
+    if (!sportId) return res.status(404).json({ error: "Cricket sport not found" })
 
-    const text = await response.text();
-    console.log(`[DEBUG] Cricket API status: ${response.status}`);
-    console.log(`[DEBUG] Cricket API body: ${text.slice(0, 500)}`);
+    const token = await getToken()
 
-    if (!response.ok) {
-      return res.status(response.status).json({ error: `Cricket API ${response.status}`, raw: text });
-    }
+    const response = await axios.get(
+      "https://cpservm.com/gateway/marketing/datafeed/prematch/api/v2/sportevents",
+      {
+        params: {
+          ref: REF,
+          sportIds: sportId,
+          lng: "en"
+        },
+        headers:{
+          Authorization:`Bearer ${token}`
+        }
+      }
+    )
 
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      return res.status(502).json({ error: "Invalid JSON", raw: text });
-    }
-
-    if (!data.data || data.data.length === 0) {
-      return res.json({ matches: [], message: "Матчей нет" });
-    }
-
-    const matches = data.data.map(match => ({
+    const items = response.data.items || []
+    const matches = items.map(match => ({
       id: match.id,
-      name: match.name,
-      venue: match.venue,
-      status: match.status,
-      teams: match.teams,
-      date: match.dateTimeGMT,
-      dateOnly: match.date,
-      teamInfo: match.teamInfo,
-      score: match.score
-    }));
+      name: `${match.homeTeamName} vs ${match.awayTeamName}`,
+      venue: match.venueName || 'Unknown',
+      status: 'Not Started',
+      teams: [match.homeTeamName, match.awayTeamName],
+      date: new Date(match.startTime * 1000).toISOString(),
+      dateOnly: new Date(match.startTime * 1000).toISOString().split('T')[0],
+      teamInfo: [
+        { name: match.homeTeamName, img: null },
+        { name: match.awayTeamName, img: null }
+      ],
+      score: null
+    }))
 
-    res.json({ data: matches });
+    res.json({ data: matches })
+
   } catch (err) {
     console.error("Cricket proxy error:", err);
-    res.status(500).json({ error: "Крикет ошибка" });
+    res.status(500).json({ error: "Cricket proxy error" });
   }
 });
 
@@ -107,49 +189,57 @@ app.get("/matches/basketball", async (req, res) => {
   if (!date) return res.status(400).json({ error: "date обязателен" });
 
   try {
-    const response = await fetch(`https://v1.basketball.api-sports.io/games?date=${date}`, {
-      headers: {
-        'x-rapidapi-key': API_KEY,
-        'x-rapidapi-host': 'v1.basketball.api-sports.io'
+    const sportId = await getSportId('basketball')
+    if (!sportId) return res.status(404).json({ error: "Basketball sport not found" })
+
+    const token = await getToken()
+
+    const gtStart = Math.floor(new Date(date).getTime() / 1000)
+    const ltStart = gtStart + 24*3600
+
+    const response = await axios.get(
+      "https://cpservm.com/gateway/marketing/datafeed/prematch/api/v2/sportevents",
+      {
+        params: {
+          ref: REF,
+          sportIds: sportId,
+          lng: "en",
+          gtStart,
+          ltStart
+        },
+        headers:{
+          Authorization:`Bearer ${token}`
+        }
       }
-    });
+    )
 
-    const text = await response.text();
-
-    if (!response.ok) {
-      return res.status(response.status).json({ error: text });
-    }
-
-    const data = JSON.parse(text);
-
-    if (!data.response || !Array.isArray(data.response)) {
-      return res.json({ data: [] });
-    }
-
-    // Группируем по лигам, как футбол
-    const leaguesMap = {};
-    data.response.forEach(match => {
-      const leagueId = match.league.id;
+    const items = response.data.items || []
+    const leaguesMap = {}
+    items.forEach(match => {
+      const leagueId = match.tournamentId
       if (!leaguesMap[leagueId]) {
         leaguesMap[leagueId] = {
-          league: match.league,
+          league: {
+            id: leagueId,
+            name: match.tournamentName,
+            logo: null
+          },
           matches: []
-        };
+        }
       }
       leaguesMap[leagueId].matches.push({
         id: match.id,
-        date: match.date.start,
-        status: match.status.long,
-        teams: [match.teams.home.name, match.teams.away.name],
+        date: new Date(match.startTime * 1000).toISOString(),
+        status: { long: 'Not Started' },
+        teams: [match.homeTeamName, match.awayTeamName],
         teamInfo: [
-          { name: match.teams.home.name, img: match.teams.home.logo },
-          { name: match.teams.away.name, img: match.teams.away.logo }
+          { name: match.homeTeamName, img: null },
+          { name: match.awayTeamName, img: null }
         ]
-      });
-    });
+      })
+    })
 
-    // вернём массив лиг в поле `data`, чтобы клиент ожидалую структуру корректно обрабатывал
-    res.json({ data: Object.values(leaguesMap) });
+    res.json({ data: Object.values(leaguesMap) })
 
   } catch (err) {
     console.error("Basketball proxy error:", err);
@@ -163,47 +253,57 @@ app.get("/matches/volleyball", async (req, res) => {
   if (!date) return res.status(400).json({ error: "date обязателен" });
 
   try {
-    const response = await fetch(`https://v1.volleyball.api-sports.io/games?date=${date}`, {
-      headers: {
-        'x-rapidapi-key': API_KEY,
-        'x-rapidapi-host': 'v1.volleyball.api-sports.io'
+    const sportId = await getSportId('volleyball')
+    if (!sportId) return res.status(404).json({ error: "Volleyball sport not found" })
+
+    const token = await getToken()
+
+    const gtStart = Math.floor(new Date(date).getTime() / 1000)
+    const ltStart = gtStart + 24*3600
+
+    const response = await axios.get(
+      "https://cpservm.com/gateway/marketing/datafeed/prematch/api/v2/sportevents",
+      {
+        params: {
+          ref: REF,
+          sportIds: sportId,
+          lng: "en",
+          gtStart,
+          ltStart
+        },
+        headers:{
+          Authorization:`Bearer ${token}`
+        }
       }
-    });
+    )
 
-    const text = await response.text();
-
-    if (!response.ok) {
-      return res.status(response.status).json({ error: text });
-    }
-
-    const data = JSON.parse(text);
-
-    if (!data.response || !Array.isArray(data.response)) {
-      return res.json({ data: [] });
-    }
-
-    const leaguesMap = {};
-    data.response.forEach(match => {
-      const leagueId = match.league.id;
+    const items = response.data.items || []
+    const leaguesMap = {}
+    items.forEach(match => {
+      const leagueId = match.tournamentId
       if (!leaguesMap[leagueId]) {
         leaguesMap[leagueId] = {
-          league: match.league,
+          league: {
+            id: leagueId,
+            name: match.tournamentName,
+            logo: null
+          },
           matches: []
-        };
+        }
       }
       leaguesMap[leagueId].matches.push({
         id: match.id,
-        date: match.date.start,
-        status: match.status.long,
-        teams: [match.teams.home.name, match.teams.away.name],
+        date: new Date(match.startTime * 1000).toISOString(),
+        status: { long: 'Not Started' },
+        teams: [match.homeTeamName, match.awayTeamName],
         teamInfo: [
-          { name: match.teams.home.name, img: match.teams.home.logo },
-          { name: match.teams.away.name, img: match.teams.away.logo }
+          { name: match.homeTeamName, img: null },
+          { name: match.awayTeamName, img: null }
         ]
-      });
-    });
+      })
+    })
 
-    res.json({ data: Object.values(leaguesMap) });
+    res.json({ data: Object.values(leaguesMap) })
 
   } catch (err) {
     console.error("Volleyball proxy error:", err);
@@ -326,15 +426,236 @@ app.get("/popular/all", (req, res) => {
   });
 });
 
+app.get("/api/sports", async (req,res)=>{
+  try{
+    const token = await getToken()
+
+    const response = await axios.get(
+      `https://cpservm.com/gateway/marketing/datafeed/directories/api/v2/sports?ref=${REF}`,
+      { headers:{ Authorization:`Bearer ${token}` } }
+    )
+
+    res.json(response.data)
+
+  }catch(e){
+    console.log("SPORTS ERROR:", e.response?.data || e.message)
+    res.status(500).json({ error:"sports error" })
+  }
+})
+
+app.get("/api/events", async(req,res)=>{
+  try{
+    const token = await getToken()
+    const sportId = req.query.sportId
+    const { gtStart, ltStart } = req.query
+
+    const params = {
+      ref: REF,
+      sportIds: sportId,
+      lng: "en"
+    }
+    if (gtStart) params.gtStart = Number(gtStart)
+    if (ltStart) params.ltStart = Number(ltStart)
+
+    const response = await axios.get(
+      "https://cpservm.com/gateway/marketing/datafeed/prematch/api/v2/sportevents",
+      {
+        params,
+        headers:{
+          Authorization:`Bearer ${token}`
+        }
+      }
+    )
+
+    res.json(response.data)
+
+  }catch(e){
+    console.log("MATCHES ERROR:", e.response?.data || e.message)
+    res.status(500).json({error:"events error"})
+  }
+})
+
+app.get("/api/results-sports", async (req, res) => {
+  try {
+
+    const token = await getToken()
+
+    const now = Math.floor(Date.now() / 1000)
+
+    const params = {
+      ref: REF,
+      DateFrom: now - 3600 * 24,
+      DateTo: now,
+      lng: "en"
+    }
+
+    console.log("RESULT SPORTS PARAMS:", params)
+
+    const response = await axios.get(
+      "https://cpservm.com/gateway/marketing/result/api/v1/sports",
+      {
+        params,
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    )
+
+    console.log("RESULT SPORTS:", response.data)
+
+    res.json(response.data)
+
+  } catch (e) {
+
+    console.log(
+      "RESULT SPORTS ERROR:",
+      e.response?.data || e.message
+    )
+
+    res.status(500).json({
+      error: "result sports error",
+      details: e.response?.data
+    })
+
+  }
+})
+
+// endpoint: /api/results-events?sportId=...
+app.get("/api/results-events", async (req, res) => {
+  try {
+    const token = await getToken()
+    const sportId = req.query.sportId
+
+    if (!sportId) {
+      return res.json({ items: [] })
+    }
+
+    // Временной диапазон — максимум 2 дня
+    const now = Math.floor(Date.now() / 1000)
+    const dateFrom = now - 24 * 3600 // последние 24 часа
+    const dateTo = now
+
+    // сначала запрашиваем турниры, в которых есть результаты для спорта
+    const tournamentsResp = await axios.get(
+      "https://cpservm.com/gateway/marketing/result/api/v1/tournaments",
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          ref: REF,
+          sportId,
+          DateFrom: dateFrom,
+          DateTo: dateTo
+        }
+      }
+    )
+
+    const tournamentsData = tournamentsResp.data || {}
+    const list = tournamentsData.items || []
+
+    if (list.length === 0) {
+      // ничего нет – возвращаем пустой результат без ошибок
+      return res.json({ items: [] })
+    }
+
+    // убираем из списка неопределённые / пустые идентификаторы
+    const tournamentIdsList = list
+      .map(t => t.tournamentId)
+      .filter(id => id !== undefined && id !== null && id !== "")
+
+    if (tournamentIdsList.length === 0) {
+      console.warn("RESULT EVENTS: tournaments returned but no valid IDs", list)
+      return res.json({ items: [] })
+    }
+
+    const tournamentIds = tournamentIdsList.join(",")
+    console.log("FOUND TOURNAMENTS:", tournamentIds)
+
+    const params = {
+      ref: REF,
+      dateFrom,
+      dateTo,
+      tournamentIds,
+      lng: "en"
+    }
+
+    console.log("RESULT EVENTS PARAMS:", params)
+
+    const response = await axios.get(
+      "https://cpservm.com/gateway/marketing/result/api/v1/sportevents",
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        params
+      }
+    )
+
+    console.log("RESULT EVENTS RESPONSE:", response.data)
+    res.json(response.data)
+
+  } catch (e) {
+    console.error("RESULT EVENTS ERROR:", e.response?.data || e.message)
+    res.status(500).json({ error: "result events error", details: e.response?.data || e.message })
+  }
+})
+
+// helper to stream an image from the marketing service or redirect to S3
+// images are stored in a private S3 bucket; cpservm.com is a CNAME that simply
+// returns a PermanentRedirect error telling clients to use the proper endpoint.
+//
+// The ideal solution is for the provider to supply pre‑signed URLs, but until
+// then we can either redirect the browser to the suggested host or act as a
+// proxy and let the client see the S3 error (usually 403).
+app.get('/api/img/:name', async (req, res) => {
+  const { name } = req.params;
+  if (!name) return res.status(400).send('name required');
+
+  const s3url = `https://s3.amazonaws.com/downloads/${encodeURIComponent(name)}`;
+
+  try {
+    const url = `https://cpservm.com/downloads/${encodeURIComponent(name)}`;
+    const r = await axios.get(url, {
+      responseType: 'stream',
+      maxRedirects: 0,
+      validateStatus: (st) => st < 600
+    });
+
+    if (r.status === 200) {
+      res.setHeader('Content-Type', r.headers['content-type'] || 'application/octet-stream');
+      return r.data.pipe(res);
+    }
+
+    if (r.status === 301 && r.data) {
+      let body = '';
+      for await (const chunk of r.data) body += chunk;
+      const m = body.match(/<Endpoint>([^<]+)<\/Endpoint>/);
+      if (m) {
+        const endpoint = m[1];
+        const redirectUrl = `https://${endpoint}/downloads/${encodeURIComponent(name)}`;
+        return res.redirect(302, redirectUrl);
+      }
+    }
+
+    // if cpservm gave some other status (529 etc), just redirect straight to S3
+    console.warn('IMAGE PROXY non-redirect status', r.status);
+    return res.redirect(302, s3url);
+  } catch (err) {
+    console.error('IMAGE PROXY FAIL:', err.message);
+    // upstream hiccup (529 etc) – still redirect, letting browser see 403
+    return res.redirect(302, s3url);
+  }
+});
+
 // Статика
-app.use(express.static(path.join(__dirname, ".")));
+app.use(express.static(path.join(__dirname, "public")));
 
 // SPA fallback
 app.get(/.*/, (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 // Первый и единственный запуск сервера (оставить этот)
 app.listen(PORT, () => {
-  console.log(`✅ Сервер запущен на http://localhost:${PORT} (serving from ${__dirname})`);
+  console.log(`✅ Сервер запущен на http://localhost:${PORT}`);
+  if (process.argv.includes('--open')) {
+    exec('$BROWSER http://localhost:5000');
+  }
 });

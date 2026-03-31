@@ -1,0 +1,32 @@
+.bottom-panel {
+    display: none;
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    border-top: 1px solid var(--vulcan-4, rgba(9, 10, 18, 0.05));
+    background: var(--bg); 
+    padding: 8px;
+
+    .sidebar__nav {
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+    }
+
+    .sidebar__nav-item {
+        width: calc(25% - (12px * 3 / 4));
+    }
+
+    .sidebar__nav-item a {
+        flex-direction: column;
+        align-items: center; 
+        gap: 8px;
+        font-size: 12px;
+    }
+
+    .sidebar__nav-item:last-child svg path {
+        stroke: var(--vulcan-40, rgba(255, 255, 255, 0.4));
+    }
+}

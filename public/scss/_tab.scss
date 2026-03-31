@@ -1,0 +1,211 @@
+.tab {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+
+    &__header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        &:before {
+            content: '';
+            display: flex;
+            width: 32px;
+            height: 32px;
+            background: url(images/plus.webp) center no-repeat;
+        }  
+    }
+
+    &__league {
+            margin-left: 8px;
+            font-size: 16px;        
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+
+            &:after {
+                content: '';
+                display: flex;
+                width: 32px;
+                height: 32px;
+                background: url(images/arrow.webp) center no-repeat;
+    
+            }
+        }
+    
+        &__link {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            font-size: 16px;
+            color: var(--vulcan-40, rgba(9, 10, 18, 0.40));  
+
+            &:after {
+            content: '';
+                display: flex;
+                width: 32px;
+                height: 32px;
+                background: url(images/arrow.webp) center no-repeat; 
+                transform: rotate(-90deg);
+                opacity: .4;
+            }
+        }
+
+        &__content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        &__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px;
+            font-size: 16px;
+            color: var(--vulcan-40, rgba(9, 10, 18, 0.40));
+            padding-right: 48px;
+
+
+            .tab__digits {
+                color: var(--vulcan, #090A12);
+            }
+
+            &>div:last-child {
+                width: 155px;
+            }
+        }
+
+        &__body {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-right: 24px;
+            max-height: 425px;
+            overflow-y: auto;
+
+            &::-webkit-scrollbar {
+                width: 6px;
+            }
+            &::-webkit-scrollbar-track {
+           background: rgba(9, 10, 18, 0.03);
+             border-radius: 40px;
+            }
+
+            &::-webkit-scrollbar-thumb {
+               border-radius: 40px;
+                background: var(--main-100);
+            }
+        }
+ 
+        &__row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            font-size: 16px; 
+            border-radius: 8px;
+
+            &:first-child, &:nth-child(2), &:nth-child(3), &:nth-child(4) {
+                background: var(--main-10);
+            }
+
+             &:nth-child(5),  &:nth-child(8) {
+                background: rgba(255, 89, 0, 0.10);
+             }
+
+            &>div:last-child {
+                width: 155px;
+            }
+        }
+
+        &__club {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            width: 445px;
+
+            &>div:first-child {
+                width: 40px;
+            }
+        }
+
+        &__team {
+             display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 12px;
+        }
+
+        &__digits {
+            display: flex;
+            align-items: center;
+            width: 240px;
+
+            div {
+                width: 25%;
+                min-width: 25%;
+            }
+        }
+
+        &__colors {
+            display: flex;
+            align-items: center;
+            padding: 8px 24px 24px;
+            gap: 24px;
+
+            div {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+
+                span {
+                    display: flex;
+                    width: 12px;
+                    height: 12px;
+                    border-radius: 50%;
+                }
+            }
+        }
+
+        &__form {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        
+
+        .form-badge {
+             font-size: 0;
+             display: flex;
+             align-items: center;
+             justify-content: center;
+             width: 20px;
+             height: 20px;
+             border-radius: 50%;
+
+             &.win {
+                background: url(images/win.webp) center no-repeat;
+                background-size: contain;
+             }
+            &.lose {
+                background: url(images/lose.webp) center no-repeat; 
+                background-size: contain;
+             }
+
+            &.draw {
+                background: grey;
+
+                &:after {
+                    content: '-';
+                    color: #fff;
+                    font-size: 16px;
+                    line-height: 11px;
+                }
+            }
+        }
+    }
+
+}

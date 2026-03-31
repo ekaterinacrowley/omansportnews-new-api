@@ -1,0 +1,176 @@
+.sidebar {
+    position: sticky;
+    left: -275px;
+    top: 0;
+    display: flex;
+    padding: 24px 24px 28px 0;
+    width: 275px;
+    min-width: 275px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    align-self: stretch;  
+    height: fit-content;
+
+    &__nav {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+
+        &--leagues {
+            gap: 16px;
+
+            .sidebar__nav-item a:hover {
+                color: var(--vulcan);
+            }
+        }
+
+    }
+
+     &__nav-item {
+        
+            a {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                color: var(--vulcan-40);
+                
+                svg {
+                     fill: var(--vulcan-40, rgba(255, 255, 255, 0.40));
+                }
+                
+                &:hover {
+                   color: var(--vulcan-60);
+
+                    svg {
+                            fill: var(--vulcan-60);
+                            fill-opacity: 1;
+                        }
+                }
+
+                img {
+                    width: 24px;
+                    height: 24px;
+                }
+
+                span {
+                    display: flex;  
+                    align-items: center;
+                    justify-content: center;
+                    width: 24px;
+                    height: 24px;
+                    background: var(--main-10);
+                    border-radius: 50%;
+                }
+            }
+
+            &--current a {
+                color: var(--main-100, #008AFF); 
+
+                svg {
+                      fill: var(--main-100, #008AFF);
+                }
+            }
+
+            &--see-more a {
+                color: var(--main-100); 
+            }  
+
+        }
+
+    &__tab-buttons {
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        margin-bottom: 28px;
+    }
+
+    &__tab-button {
+        display: flex;
+        padding: 8px;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        flex: 1 0 0;
+        border-bottom: 1px solid var(--vulcan-4, rgba(9, 10, 18, 0.05));
+        color: var(--vulcan-40, #595D6E);
+        line-height: 1.2;
+        cursor: pointer;
+
+        &:hover {
+             color: var(--vulcan-60);
+             border-bottom: 1px solid var(--vulcan-60);
+        }
+
+        &--active {
+            color: var(--vulcan, #090A12);
+            border-bottom: 1px solid var(--vulcan);
+        }
+    }
+
+    &__app {
+            margin-top: 28px;
+            margin-left: -15px;
+            width: 259px;
+            height: 165px;
+            border-radius: 20px;
+            border-radius: 20px;
+            background: var(--main-10);
+            position: relative;
+
+            &-info {
+               padding: 20px;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                justify-content: space-between;
+                height: 100%;
+                position: relative;
+                z-index: 1;
+            }
+
+            &-title {
+                color: var(--vulcan, #FFF);
+                font-size: 16px;
+                font-weight: 700;
+                line-height: normal;
+            }
+
+            &-subtitle {
+               color: var(--vulcan, #FFF);
+            opacity: 0.4;
+            }
+
+            &-icons {
+                display: flex;
+                width: 227px;
+                height: 60px;
+                padding-top: 20px;
+                align-items: center;
+                gap: 8px;
+                flex-shrink: 0;
+
+                img, svg {
+                    width: 30px;
+                    height: 30px;
+                    cursor: pointer;
+                }
+            }
+
+            &-img {
+                position: absolute;
+                width: 170px;
+                height: 170px;
+                bottom: 0;
+                left: 50%;
+                z-index: 0;
+            }
+    }
+
+    .header__controls {
+        display: none;
+    }
+}

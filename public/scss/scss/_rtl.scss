@@ -1,0 +1,186 @@
+[data-lang="pakistan"],
+[data-lang="sa"] {
+
+    .slider {
+        direction: ltr;
+    }
+  /* Sidebar flips */
+  .sidebar {
+    right: -275px;
+    left: auto;
+    padding: 24px 0 28px 24px;
+
+    @media (max-width: 1440px) and (min-width: 768px) {
+        padding: 1.667vw 0 1.944vw 1.667vw;
+    }
+
+    @media (max-width: 767px) {
+        padding: 28px 16px 16px 16px;
+  }
+}
+
+  .sidebar__app {
+    margin-right: -15px;
+    margin-left: 0;
+    @media (max-width: 1440px) and (min-width: 768px) {
+        margin-right: -1.042vw;
+    }
+
+     @media (max-width: 767px) {
+        margin-right:0;
+    }
+  }
+
+  .sidebar__app-img {
+    right: 50%;
+    left: auto;
+  }
+
+  /* App banner image and pseudo-element */
+  .app-banner {
+    &:after {
+      border-radius: 16px 0 0 16px;
+      background: url(images/app-bg-rtl.webp) left center no-repeat;
+
+      @media (max-width: 767px) {
+            background: url(images/app-bg-mob.webp) right bottom no-repeat;
+        }
+    }
+
+    &__image {
+      left: 0;
+      right: auto;
+    }
+
+    &__btn {
+        padding: 4px 24px 4px 4px;
+        @media (max-width: 1440px) and (min-width: 768px) {
+            padding: 0.278vw 1.667vw 0.278vw 0.278vw;
+            
+        }
+    }
+  }
+
+  /* Sports text alignment */
+  .sports {
+    .match-status {
+      text-align: left;
+    }
+
+    .team--2 {
+      text-align: left;
+      justify-content: flex-start;
+    }
+
+    .time {
+      padding: 4px 16px 4px 4px;
+      @media (max-width: 1440px) and (min-width: 767px) {
+
+            padding: 0.278vw 1.111vw 0.278vw 0.278vw;
+      }
+    }
+  }
+
+  .tab__link:after {
+    transform: rotate(90deg);
+  }
+
+  /* Mobile-specific flips */
+  @media (max-width: 767px) {
+    .sidebar {
+      left: auto;
+      right: -110vw;
+
+      &.open {
+        right: 0;
+        left: auto;
+      }
+    }
+
+    .slider__wrapper {
+      left: auto;
+      right: 0;
+    }
+
+    .app-banner__image {
+      margin-right: -8px;
+      margin-left: -8px;
+    }
+
+    .tab {
+      &__head {
+        padding-left: 48px;
+        padding-right: 0;
+      }
+      &__body {
+        padding-left: 24px;
+        padding-right: 0;
+      }
+    }
+
+    .match .time {
+      margin-left: 0;
+      margin-right: auto;
+    }
+
+    .team {
+      &--2 {
+        text-align: right;
+        justify-content: flex-end;
+      }
+    }
+  }
+
+  /* Tab flips */
+  .tab {
+    &__league {
+      margin-right: 8px;
+      margin-left: 0;
+    }
+
+    &__link {
+      margin-right: auto;
+      margin-left: 0;
+    }
+
+    &__head {
+      padding-left: 48px;
+      padding-right: 0;
+    }
+
+    &__body {
+      padding-left: 24px;
+      padding-right: 0;
+    }
+  }
+
+  .news { 
+    &__btn {
+        padding: 4px 24px 4px 4px;
+        @media (max-width: 1440px) and (min-width: 768px) {
+            padding: 0.278vw 1.667vw 0.278vw 0.278vw;
+            
+        }
+    }
+  }
+
+  .teams {
+    &__container {
+        margin-right: 0;
+
+    }
+
+  }
+  footer {
+    padding: 40px 275px 40px 0;
+
+
+      @media (max-width: 1440px) and (min-width: 767px) {
+            font-size: 1.111vw;
+            padding: 2.778vw  19.097vw 2.778vw 0;
+    }
+    @media (max-width: 767px) {
+            padding: 40px 8px 100px;
+    }
+}
+}

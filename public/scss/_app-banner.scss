@@ -1,0 +1,125 @@
+.app-banner {
+    display: flex;
+    width: 100%;
+    height: 328px;
+    align-items: flex-start;
+    gap: 16px;
+    align-self: stretch;
+    border-radius: 16px;
+    background: radial-gradient(48.74% 99.7% at 83.66% 102.66%, rgba(0, 138, 255, 0.10) 0%, rgba(0, 138, 255, 0.10) 100%);
+    position: relative;
+
+    &:after {
+        content: '';
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background: url(images/app-bg.webp) no-repeat right;
+        z-index: 0;
+        border-radius: 0 16px 16px 0;
+        z-index: 0;
+    }
+
+    &__content {
+        display: flex;
+        padding: 40px;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 20px;
+        flex: 1 0 0;
+        max-width: 50%;
+        height: 100%;
+        position: relative;
+        z-index: 2;
+    }
+
+    &__image {
+         position: absolute;
+         bottom: 0;
+         right:0;
+         z-index: 1;
+         max-width: 60%;
+         width: 629px;
+         height: 365px;
+    }
+
+    &__title {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+
+        div {
+            display: inline-flex;
+            padding: 10px 15px;
+            justify-content: center;
+            align-items: center;
+            border-radius: 22px;
+            font-size: 34px;
+            font-weight: 500;
+
+            &:first-child {
+               background: var(--white-100, #FFF);
+                transform: rotate(0.973deg);
+            }
+
+            &:last-child {
+               background: #FF5900;
+               color: var(--white-100, #FFF);
+               transform: rotate(-1.774deg);
+            }
+        }
+    }
+
+    &__text {
+        color: var(--vulcan-60);
+        font-size: 16px;
+        line-height: 1.2;
+        max-width: 360px;
+    }
+
+    &__controls {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    &__btn {
+        display: flex;
+        padding: 4px 4px 4px 24px;
+        justify-content: center;
+        align-items: center;
+        gap: 24px;
+        border-radius: 12px;
+        background: var(--vulcan, #090A12);
+        color: var(--white-100, #FFF);
+        font-weight: 600;
+
+        span {
+            display: flex;
+            padding: 8px;
+            align-items: center;
+            gap: 10px;
+            border-radius: 8px;
+            background: var(--main-100, #008AFF);
+            transition: all .3s ease;
+        }
+
+        &:hover {
+            background: var(--main-100, #008AFF);
+
+            span {
+                background: var(--vulcan, #090A12);
+            }
+        }
+    }
+
+    &__qr {
+        display: flex;
+        padding: 8px;
+        align-items: center;
+        gap: 10px;
+        border-radius: 8px;
+        background: var(--white-100, #FFF);
+    }
+}

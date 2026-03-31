@@ -1,0 +1,106 @@
+.teams {
+    display: flex;
+    padding: 24px 24px 12px 24px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 24px;
+    align-self: stretch;
+
+    &__heading {
+        display: flex;
+        align-items: center;
+        gap: 36px;
+
+    }
+
+    &__topics {
+    flex: 1;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 20px 0;
+    gap: 10px;
+    overflow-x: auto;
+    
+    /* Обязательные свойства для работы скролла */
+    -webkit-overflow-scrolling: touch; /* Плавный скролл на iOS */
+    cursor: grab; /* Изменяем курсор при наведении */
+    
+    /* Курсор при активном скролле */
+    &:active {
+        cursor: grabbing;
+    }
+    
+    /* Включаем скролл мышью */
+    scroll-behavior: smooth;
+    
+    /* Скрываем скроллбар */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+    &__topic {
+        display: flex;
+        padding: 6px 16px;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        border-radius: 16px;
+        border: 1px solid var(--vulcan-10, rgba(9, 10, 18, 0.1));
+        cursor: pointer;
+        transition: all .3s ease;
+         color: var(--vulcan);
+         white-space: nowrap;
+
+        &--selected, &:hover {
+            border: 1px solid var(--main-100, #008AFF);
+            color: var(--main-100);
+        }
+    }
+
+    &__container {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        max-width: 1027px;
+        margin-right: -30px;
+         overflow-x: auto;
+    
+    /* Обязательные свойства для работы скролла */
+    -webkit-overflow-scrolling: touch; /* Плавный скролл на iOS */
+    cursor: grab; /* Изменяем курсор при наведении */
+    
+    /* Курсор при активном скролле */
+    &:active {
+        cursor: grabbing;
+    }
+    
+    /* Включаем скролл мышью */
+    scroll-behavior: smooth;
+    
+    /* Скрываем скроллбар */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
+    
+
+    &__item {
+        display: flex;
+        width: 124px;
+        height: 124px;
+        padding: 30px;
+        justify-content: center;
+        align-items: center;
+        flex-shrink: 0;
+        border-radius: 104px;
+        background: var(--main-4, rgba(0, 138, 255, 0.04));
+    }
+}

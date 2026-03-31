@@ -1,0 +1,117 @@
+[data-theme="light"] {
+    --bg: rgba(240, 240, 240, 1); /* #F0F0F0, 100% */
+    --main-10: rgba(0, 138, 255, 0.1); /* #008AFF, 10% */
+    --main-100: rgba(0, 138, 255, 1); /* #008AFF, 100% */
+    --main-4: rgba(0, 138, 255, 0.04); /* #008AFF, 4% */
+    --main-60: rgba(0, 138, 255, 0.6); /* #008AFF, 60% */
+    --vulcan: rgba(9, 10, 18, 1); /* #090A12, 100% */
+    --vulcan-10: rgba(9, 10, 18, 0.1); /* #090A12, 10% */
+    --vulcan-4: rgba(9, 10, 18, 0.05); /* #090A12, 5% */
+    --vulcan-40: rgba(9, 10, 18, 0.4); /* #090A12, 40% */
+    --vulcan-60: rgba(9, 10, 18, 0.6); /* #090A12, 60% */
+    --white-10: rgba(255, 255, 255, 0.1); /* #FFFFFF, 10% */
+    --white-100: rgba(255, 255, 255, 1); /* #FFFFFF, 100% */
+    --white-5: rgba(255, 255, 255, 0.05); /* #FFFFFF, 5% */
+    --white-60: rgba(255, 255, 255, 0.6); /* #FFFFFF, 60% */
+
+    .telegram-banner {
+        background: url(images/telegram-bg.webp) right center no-repeat;
+            background-size: cover;
+
+
+             @media (max-width: 767px) {
+                 background: url(images/telegram-bg-mob.webp) center no-repeat;
+                 background-size: cover;
+
+            }
+    }
+
+    &[data-lang="pakistan"],
+    &[data-lang="sa"] {
+        .telegram-banner {
+            background: url(images/telegram-bg-rtl.webp) left center no-repeat;
+            background-size: cover;
+
+              @media (max-width: 767px) {
+                 background: url(images/telegram-bg-mob.webp) center no-repeat;
+                 background-size: cover;
+
+            }
+        }
+    }
+
+    .sidebar__nav--leagues .sidebar__nav-item:first-child img {
+        filter: grayscale(100)  brightness(0);
+    }
+
+    .app-popup {
+        background: rgba(255, 255, 255, 0.9);
+    }
+}
+
+[data-theme="dark"] {
+    --bg: rgba(9, 10, 18, 1); /* #090A12, 100% */
+    --main-10: rgba(0, 138, 255, 0.1); /* #008AFF, 10% */
+    --main-100: rgba(0, 138, 255, 1); /* #008AFF, 100% */
+    --main-4: rgba(0, 138, 255, 0.14); /* #008AFF, 14% */
+    --main-60: rgba(0, 138, 255, 0.6); /* #008AFF, 60% */
+    --vulcan: rgba(255, 255, 255, 1); /* #FFFFFF, 100% */
+    --vulcan-10: rgba(255, 255, 255, 0.14); /* #FFFFFF, 14% */
+    --vulcan-4: rgba(255, 255, 255, 0.05); /* #FFFFFF, 5% */
+    --vulcan-40: rgba(255, 255, 255, 0.4); /* #FFFFFF, 40% */
+    --vulcan-60: rgba(255, 255, 255, 0.6); /* #FFFFFF, 60% */
+    --white-10: rgba(9, 23, 39, 0.1); /* #091727, 10% */
+    --white-100: rgba(9, 23, 39, 1); /* #091727, 100% */
+    --white-5: rgba(9, 23, 39, 0.05); /* #091727, 5% */
+    --white-60: rgba(9, 23, 39, 0.6); /* #091727, 60% */
+
+    .telegram-banner {
+        background: url(images/telegram-bg-dark.webp) right center no-repeat;
+            background-size: cover;
+
+
+
+            @media (max-width: 767px) {
+                 background: url(images/telegram-bg-dark-mob.webp) center no-repeat;
+                 background-size: cover;
+                }
+    }
+
+    &[data-lang="pakistan"],
+    &[data-lang="sa"] {
+        .telegram-banner {
+            background: url(images/telegram-bg-rtl-dark.webp) left center no-repeat;
+            background-size: cover;
+
+            @media (max-width: 767px) {
+                 background: url(images/telegram-bg-dark-mob.webp) center no-repeat;
+                 background-size: cover;
+                }
+        }
+    }
+
+    .tab__header img {
+        background: #fff;
+        border-radius: 50%;
+    }
+
+    .tab__league:after, .tab__link:after {
+        filter: brightness(100);
+    } 
+
+    .sidebar {
+        @media (max-width: 767px) {
+            background: rgba(0, 0, 0, 0.9);
+        }
+    }
+
+
+    .app-popup {
+        background: rgba(0, 0, 0, 0.9);
+    }
+
+    .sports .time span.watch:before {
+        filter: invert(1);
+    }
+}
+

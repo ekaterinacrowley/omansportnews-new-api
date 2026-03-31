@@ -1,0 +1,451 @@
+@media (max-width: 767px) {
+
+    .main-width {
+        padding: 0 8px;;
+    }
+    
+    body {
+        padding-top: 52px;
+    }
+
+    header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 98;
+        background: var(--bg);
+
+    .header {
+        height: 52px;
+
+        &__logo {
+            width: auto;
+        }
+
+        &__search {
+            width: 36px;
+           
+            input {
+                display: none;
+            }
+        }
+
+    
+
+        &__langs {
+            display: none;
+        } 
+
+        &__themes-switcher {
+             display: none;
+        }
+
+        &__app {
+            span:first-child {
+                display: none;
+            }
+        }
+    }
+}
+
+    .sidebar {
+        position: fixed;
+        top: 52px;
+        bottom: 52px;
+        left: - 110vw;
+        transition: all .3s ease;
+        z-index: 89;
+        height: auto;
+        width: 100vw;
+        background: rgba(255, 255, 255, 0.90);
+        backdrop-filter: blur(40px);
+        padding: 28px 16px 16px 16px;
+
+        .header__controls {
+            display: flex;
+            margin-top: 28px;
+            justify-content: flex-start;
+        }
+
+        &.open {
+            left: 0;
+        }
+
+        > .sidebar__nav .sidebar__nav-item:first-child, > .sidebar__nav .sidebar__nav-item:nth-child(2),  > .sidebar__nav .sidebar__nav-item:nth-child(3) {
+            display: none;
+        }
+
+        &__app {
+            margin-left:0;
+        }
+
+    }
+
+    .content {
+        padding: 8px 0;
+    }
+
+    .slider {
+        height: 625px;
+        aspect-ratio: auto;
+        &__wrapper {
+            width: 100%;
+            left: 0;
+        }
+
+        .swiper-container {
+            padding: 0;
+        }
+        .swiper-slide {
+            width: 100% !important;
+        }
+
+        .swiper-slide-prev .slide, .swiper-slide-next .slide {
+            margin: 0;
+        }
+
+        .slide {
+            padding-top: 97px;
+
+             &:before {
+                background-position: top center;
+                margin: auto;
+                width: 90%;
+                height: 90%;
+                top: 20px;
+             }
+
+             &:after {
+                height: 600px;
+                background: linear-gradient(0deg, #008AFF 41.66%, rgba(0, 138, 255, 0.00) 75.75%);
+             }
+                
+
+
+            &__player {
+               width: 240px;
+                height: auto;
+                top: 50px;
+                bottom: auto;
+
+                &--1 {
+                    z-index: 1;
+                    width: 240px;
+                }
+
+                &--2 {
+                    width: 223px;
+                }
+            }
+
+            &__content {
+                gap: 13px;
+            }
+
+            &__teams {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            &__match {
+                order: 2;
+                width: 100%;
+                justify-content: center;
+            }
+
+            &__match-title {
+                display: none;
+            }
+
+            &__match-date {
+                display: none;
+            }
+
+            &__mobile {
+                display: flex;
+                text-align: center;
+            }
+
+
+            // &__match-scores {
+            //     flex-direction: column;
+            // }
+
+            &__timer div div {
+                font-size: 20px;
+                height: 24px;
+            }
+
+            &__controls {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            &__btn {
+                width: 100%;
+            }
+        }
+    }
+
+
+    .sports {
+        padding: 12px 0;
+
+        &__tab {
+            padding: 0 12px 16px;
+
+            &:nth-child(n + 4) {
+                display: none;
+            }
+        }
+
+        .league {
+
+        }
+
+        .match {
+            width: 100%;
+            flex-direction: column;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            height: 112px;
+            gap: 8px; 
+
+            &--cricket {
+                flex-wrap: nowrap;
+                height: auto;
+
+                .match-status {
+                    margin: 8px auto;
+                }
+            }
+
+            .team {
+                order: 0;
+
+                &--2 {
+                    order: 1;
+                    text-align: left;
+                    justify-content: flex-start;
+                }
+
+                span {
+                        order: 2;
+                        width: auto;
+                }
+            }
+
+            .time {
+                order: 2;
+                flex-direction: column;
+                height: 100%;
+                padding: 12px 4px 4px 4px;
+                justify-content: space-between;
+                width: 42%;
+                margin-left: auto;
+
+                strong {
+                    margin: auto;
+                }
+
+                .watch, .hightlights  {
+                    padding: 8px 12px 8px 4px;
+                    width: 100%;
+                    border-radius: 12px;
+                }
+            }
+
+            &__cricket {
+                width: 100%;
+                flex-direction: column;
+                align-items: flex-start;
+                flex-wrap: wrap;
+                height: 112px;
+                gap: 8px; 
+
+            }
+           
+        }
+    }
+
+    .app-banner {
+        flex-direction: column;
+        height: auto;
+
+        &__content {
+            padding: 20px;
+            max-width: 100%;
+        }
+
+        &__text {
+            br {
+                display: none;
+            }
+        }
+
+        &__controls {
+            width: 100%;
+
+        }
+
+        &__btn {
+            flex: 1;
+
+            div {
+                margin: auto;
+            }
+        }
+
+        &__image {
+            position: relative;
+            width: auto;
+            height: auto;
+            max-width: 104%;
+            margin-left: -8px;
+            margin-right: -8px;
+        }
+
+        &:after {
+            background: url(images/app-bg-mob.webp) right bottom no-repeat;
+        }
+    }
+
+    .news {
+        padding: 0;
+
+        &__heading {
+            flex-direction: column;
+            align-items: flex-start;
+            padding-top: 8px;
+            gap: 0;
+        }
+
+        &__topics {
+            padding: 16px 0 0;
+             max-width: 92vw;
+        }
+
+        &__list {
+            gap: 8px;
+        }
+
+        &__item {
+            min-width: calc(50% - 8px);
+            max-width:  calc(50% - 8px);
+        }
+
+        &__content {
+            padding: 4px 12px 12px 12px;
+        }
+
+    }
+
+    .telegram-banner {
+        height: 497px;
+        padding: 20px;
+        justify-content: flex-start;
+        gap: 20px;
+
+        &__btn {
+            width: 100%;
+        }
+    }
+
+    .tab {
+        padding: 0;
+        gap: 20px;
+
+        &__league {
+            padding-top: 12px;
+        }
+
+        &__head {
+            padding-right: 20px;
+        }
+        
+        &__body {
+            padding-right: 10px;
+        }
+
+        &__head > div:last-child, &__form {
+            display: none;
+        }
+
+        &__club {
+            width: 90%;
+
+             > div:first-child {
+                width: 30px;
+             }
+        }
+
+        &__digits {
+            width: auto;
+
+            div:first-child, div:nth-child(2), div:nth-child(3) {
+                display: none;
+            }
+        }
+
+        &__link {
+            font-size: 0;
+        }
+
+        &__colors {
+            padding: 8px 0 12px;
+        }
+    }
+
+    .teams {
+        padding: 0 0 12px;
+
+        &__heading {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0;
+            padding-top: 8px;
+        }
+
+        &__topics {
+            padding: 16px 0 0;
+            max-width: 92vw; 
+        }
+
+        &__container {
+             max-width: 92vw; 
+             gap: 8px;
+        }
+
+        &__item {
+            width: 80px;
+            height: 80px;
+            padding: 20px;
+        }
+    }
+
+    footer {
+        padding: 40px 8px 100px;
+    }
+
+
+    .app-popup {
+        &__content {
+            width: 95vw;
+            padding: 20px;
+        }
+
+        &__title {
+            font-size: 22px;
+        }
+
+        &__btn {
+            padding: 16px 8px;
+        }
+    }
+
+    .bottom-panel {
+        display: block;
+        z-index: 98;
+    }
+}

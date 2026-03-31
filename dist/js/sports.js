@@ -5,8 +5,10 @@ const volleyballContainer = document.getElementById('volleyballLeagues');
 
 // Храним текущие даты для каждого вида спорта
 const currentDates = {
-  football: new Date(),
-  cricket: new Date()
+  football: formatDate(new Date()),
+  cricket: formatDate(new Date()),
+  basketball: formatDate(new Date()),
+  volleyball: formatDate(new Date())
 };
 
 // Константы для кеширования
@@ -121,64 +123,215 @@ function getFixedDates() {
   };
 }
 
-// Функции для работы с кешем
-function getCachedData(key) {
+// Форматирует дату для отображения (например: "16.03.2026")
+function formatDateDisplay(dateStr) {
+  // Парсим в YYYY-MM-DD, чтобы избежать смещения из-за часового пояса
+  const parts = String(dateStr).split('-');
+  if (parts.length !== 3) return dateStr;
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  const dt = new Date(year, month, day);
+  if (isNaN(dt)) return dateStr;
+  return dt.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+const SPORT_ID_OVERRIDES = {
+  football: 1,
+  basketball: 3,
+  volleyball: 6,
+  cricket: 4,
+};
+
+async function getSports() {
+  const data = await fetchWithCache('/api/sports', 'sports_list');
+  return data?.items || [];
+}
+
+async function getSportId(name) {
+  if (!name) return null;
+  const key = String(name).toLowerCase();
+
+  if (SPORT_ID_OVERRIDES[key]) {
+    return SPORT_ID_OVERRIDES[key];
+  }
+
+  const sports = await getSports();
+  if (!Array.isArray(sports)) return null;
+
+  const exactMatch = sports.find(s => String(s.name).toLowerCase() === key);
+  if (exactMatch) return exactMatch.id;
+
+  const partialMatch = sports.find(s => String(s.name).toLowerCase().includes(key));
+  if (partialMatch) return partialMatch.id;
+
+  const startsWithMatch = sports.find(s => String(s.name).toLowerCase().startsWith(key));
+  if (startsWithMatch) return startsWithMatch.id;
+
+  console.warn('Sport not found in list, returning null for', name);
+  return null;
+}
+
+// Возвращает массив доступных дат (YYYY-MM-DD) из API
+const availableDatesCache = {};
+async function getAvailableDatesForSport(sportId, rangeDays = { past: 7, future: 7 }) {
+  if (!sportId) return [];
+  if (availableDatesCache[sportId]) return availableDatesCache[sportId];
+
+  const today = new Date();
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - rangeDays.past);
+  startDate.setHours(0, 0, 0, 0);
+
+  const endDate = new Date(today);
+  endDate.setDate(today.getDate() + rangeDays.future);
+  endDate.setHours(23, 59, 59, 999);
+
+  const gtStart = Math.floor(startDate.getTime() / 1000);
+  const ltStart = Math.floor(endDate.getTime() / 1000);
+
   try {
-    const cached = localStorage.getItem(key);
-    if (!cached) return null;
-    
-    const { data, timestamp } = JSON.parse(cached);
-    const now = Date.now();
-    
-    // Проверяем, не устарели ли данные
-    if (now - timestamp > CACHE_DURATION) {
-      localStorage.removeItem(key);
-      return null;
+    const data = await fetchWithCache(`/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&lng=ru`, `availableDates_${sportId}_${gtStart}_${ltStart}`);
+    if (!data || !Array.isArray(data.items)) return [];
+
+    const dates = new Set();
+    data.items.forEach(item => {
+      const startTime = item.startDate;
+      if (!startTime) return;
+      const date = new Date(startTime * 1000);
+      if (isNaN(date)) return;
+      const iso = date.toISOString().split('T')[0];
+      dates.add(iso);
+    });
+
+    const todayIso = formatDate(new Date());
+    dates.add(todayIso);
+
+    const sorted = Array.from(dates).sort();
+    const todayIdx = sorted.indexOf(todayIso);
+    if (todayIdx > 0) {
+      availableDatesCache[sportId] = sorted.slice(todayIdx).concat(sorted.slice(0, todayIdx));
+    } else {
+      availableDatesCache[sportId] = sorted;
     }
-    
-    return data;
+
+    return availableDatesCache[sportId];
   } catch (error) {
-    console.error('Error reading cache:', error);
-    return null;
+    console.warn('Cannot load available dates for sport', sportId, error);
+    return [];
   }
 }
 
-function setCachedData(key, data) {
-  try {
-    const cacheItem = {
-      data,
-      timestamp: Date.now()
-    };
-    localStorage.setItem(key, JSON.stringify(cacheItem));
-  } catch (error) {
-    console.error('Error saving cache:', error);
+// Рендерит date-picker, используя список доступных дат или фиксированные даты
+function buildDatePicker(pickerEl, sportKey, loadFn, availableDates = null) {
+  if (!pickerEl) return;
+
+  const fixedDates = getFixedDates();
+  const i18nLabels = {
+    'date.dayBeforeYesterday': 'Day before yesterday',
+    'date.yesterday': 'Yesterday',
+    'date.today': 'Today',
+    'date.tomorrow': 'Tomorrow'
+  };
+
+  // Сохраняем метки, если они заданы через data-i18n (для поддержки локализации)
+  pickerEl.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (key) i18nLabels[key] = el.textContent.trim();
+  });
+
+  // Очистка контейнера перед рендером
+  pickerEl.innerHTML = '';
+
+  // Определяем даты для кнопок
+  let dateKeys = availableDates;
+  if (!dateKeys || !dateKeys.length) {
+    dateKeys = [
+      fixedDates.today,
+      fixedDates.tomorrow,
+      fixedDates.yesterday,
+      fixedDates.dayBeforeYesterday
+    ];
   }
+
+  // Упорядочиваем: сегодня -> будущее -> прошлое
+  const todayIso = fixedDates.today;
+  dateKeys = [...new Set(dateKeys)];
+  dateKeys.sort();
+  const todayIdx = dateKeys.indexOf(todayIso);
+  if (todayIdx > 0) {
+    dateKeys = dateKeys.slice(todayIdx).concat(dateKeys.slice(0, todayIdx));
+  }
+
+  dateKeys.forEach(dateStr => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.dataset.date = dateStr;
+
+    // Если дата совпадает с одним из известных, используем метку из i18n (Today, Yesterday, ...)
+    let label = dateStr;
+    if (dateStr === fixedDates.today) label = i18nLabels['date.today'] || 'Today';
+    else if (dateStr === fixedDates.yesterday) label = i18nLabels['date.yesterday'] || 'Yesterday';
+    else if (dateStr === fixedDates.dayBeforeYesterday) label = i18nLabels['date.dayBeforeYesterday'] || 'Day before yesterday';
+    else if (dateStr === fixedDates.tomorrow) label = i18nLabels['date.tomorrow'] || 'Tomorrow';
+
+    const formatted = formatDateDisplay(dateStr);
+    btn.textContent = formatted;
+
+    if (currentDates[sportKey] === dateStr) {
+      btn.classList.add('active');
+    }
+
+    btn.addEventListener('click', () => {
+      pickerEl.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      currentDates[sportKey] = dateStr;
+      loadFn(dateStr);
+    });
+
+    pickerEl.appendChild(btn);
+  });
 }
 
-// Универсальная функция для запросов с кешированием
-async function fetchWithCache(url, cacheKey) {
-  // Пытаемся получить данные из кеша
-  const cachedData = getCachedData(cacheKey);
-  if (cachedData) {
-    // console.log(`Using cached data for ${cacheKey}`);
-    return cachedData;
-  }
-  
-  // Если данных в кеше нет или они устарели, делаем запрос
-  // console.log(`Fetching fresh data for ${cacheKey}`);
+// Асинхронно получает даты, доступные в API, и строит date-picker
+async function buildDatePickerForSport(pickerEl, sportKey, loadFn) {
+  if (!pickerEl) return;
+  const sportId = await getSportId(sportKey);
+  const dates = await getAvailableDatesForSport(sportId);
+  buildDatePicker(pickerEl, sportKey, loadFn, dates);
+}
+
+// NOTE: Caching is disabled for now to ensure fresh data is always fetched.
+// The helper function keeps the same signature for compatibility.
+async function fetchWithCache(url, cacheKey, options = {}) {
+  const { timeout = 10000 } = options;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const data = await response.json();
-    
-    // Сохраняем в кеш
-    setCachedData(cacheKey, data);
-    
-    return data;
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error(`Expected JSON response, got ${contentType}`);
+    }
+
+    return await response.json();
   } catch (error) {
-    console.error(`Error fetching ${cacheKey}:`, error);
+    clearTimeout(timeoutId);
+
+    if (error.name === 'AbortError') {
+      console.error(`Request timeout for ${url} after ${timeout}ms`);
+      throw new Error(`Request timeout after ${timeout}ms`);
+    }
+
+    console.error(`Error fetching ${url}:`, error);
     throw error;
   }
 }
@@ -188,8 +341,8 @@ async function loadMatches() {
   await Promise.all([
     loadFootballMatches(currentDates.football),
     loadCricketMatches(currentDates.cricket), 
-    loadBasketballMatches(currentDates.football),
-    loadVolleyballMatches(currentDates.football)
+    loadBasketballMatches(currentDates.basketball),
+    loadVolleyballMatches(currentDates.volleyball)
   ]);
 }
 
@@ -199,90 +352,21 @@ const allowedFootballKeywords = [
 ];
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Рисуем кнопки дат (вместо фиксированных prev/today/next) и затем загружаем матчи
+  const footballPicker = document.getElementById('footballDatePicker');
+  buildDatePickerForSport(footballPicker, 'football', loadFootballMatches).catch(e => console.warn('Date picker build failed (football):', e));
+
+  const cricketPicker = document.getElementById('cricketDatePicker');
+  buildDatePickerForSport(cricketPicker, 'cricket', loadCricketMatches).catch(e => console.warn('Date picker build failed (cricket):', e));
+
+  const basketballPicker = document.getElementById('basketballDatePicker');
+  buildDatePickerForSport(basketballPicker, 'basketball', loadBasketballMatches).catch(e => console.warn('Date picker build failed (basketball):', e));
+
+  const volleyballPicker = document.getElementById('volleyballDatePicker');
+  buildDatePickerForSport(volleyballPicker, 'volleyball', loadVolleyballMatches).catch(e => console.warn('Date picker build failed (volleyball):', e));
+
   // Инициализация всех видов спорта
   loadMatches();
-
-  // Обработчики для футбола
-  const footballPicker = document.getElementById('footballDatePicker');
-  if (footballPicker) {
-    const prevBtn = footballPicker.querySelector('.prevDay');
-    const todayBtn = footballPicker.querySelector('.todayButton');
-    const nextBtn = footballPicker.querySelector('.nextDay');
-
-    if (prevBtn) {
-      prevBtn.addEventListener('click', () => {
-        footballPicker.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-        prevBtn.classList.add('active');
-        
-        const fixedDates = getFixedDates();
-        currentDates.football = fixedDates.yesterday;
-        loadFootballMatches(fixedDates.yesterday);
-      });
-    }
-
-    if (todayBtn) {
-      todayBtn.addEventListener('click', () => {
-        footballPicker.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-        todayBtn.classList.add('active');
-        
-        const fixedDates = getFixedDates();
-        currentDates.football = fixedDates.today;
-        loadFootballMatches(fixedDates.today);
-      });
-    }
-
-    if (nextBtn) {
-      nextBtn.addEventListener('click', () => {
-        footballPicker.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-        nextBtn.classList.add('active');
-        
-        const fixedDates = getFixedDates();
-        currentDates.football = fixedDates.tomorrow;
-        loadFootballMatches(fixedDates.tomorrow);
-      });
-    }
-  }
-
-  // Обработчики для крикета
-  const cricketPicker = document.getElementById('cricketDatePicker');
-  if (cricketPicker) {
-    const prevPrevBtn = cricketPicker.querySelector('.prevPrevDay');
-    const prevBtn = cricketPicker.querySelector('.prevDay');
-    const todayBtn = cricketPicker.querySelector('.todayButton');
-
-    if (prevPrevBtn) {
-      prevPrevBtn.addEventListener('click', () => {
-        cricketPicker.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-        prevPrevBtn.classList.add('active');
-        
-        const fixedDates = getFixedDates();
-        currentDates.cricket = fixedDates.dayBeforeYesterday;
-        loadCricketMatches(fixedDates.dayBeforeYesterday);
-      });
-    }
-
-    if (prevBtn) {
-      prevBtn.addEventListener('click', () => {
-        cricketPicker.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-        prevBtn.classList.add('active');
-        
-        const fixedDates = getFixedDates();
-        currentDates.cricket = fixedDates.yesterday;
-        loadCricketMatches(fixedDates.yesterday);
-      });
-    }
-
-    if (todayBtn) {
-      todayBtn.addEventListener('click', () => {
-        cricketPicker.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-        todayBtn.classList.add('active');
-        
-        const fixedDates = getFixedDates();
-        currentDates.cricket = fixedDates.today;
-        loadCricketMatches(fixedDates.today);
-      });
-    }
-  }
 });
 
 // --- Футбол --- 

@@ -10,7 +10,7 @@ watcher.on('all', (event, path) => {
   try {
     // inject env values into src/index.html before building
   try { execSync('node scripts/inject-env-html.js', { stdio: 'inherit' }); } catch (e) { console.error('inject-env-html failed:', e && e.message ? e.message : e); }
-  execSync('npx posthtml tmp/index.injected.html -o dist/index.html -c posthtml.config.js', { stdio: 'inherit' });
+  execSync('npx posthtml tmp/index.injected.html -o public/index.html -c posthtml.config.js', { stdio: 'inherit' });
   } catch (e) {
     console.error('posthtml failed:', e.message || e);
   }
