@@ -1,6 +1,7 @@
 const footballContainer = document.getElementById('footballLeagues');
 const cricketContainer = document.getElementById('cricketLeagues');
 const basketballContainer = document.getElementById('basketballLeagues');
+const esportsContainer = document.getElementById('esportsLeagues');
 const volleyballContainer = document.getElementById('volleyballLeagues');
 
 // Определяем язык на основе атрибута lang HTML
@@ -11,6 +12,7 @@ let currentDates = {
   football: formatDate(new Date()),
   cricket: formatDate(new Date()),
   basketball: formatDate(new Date()),
+  esports: formatDate(new Date()),
   volleyball: formatDate(new Date())
 };
 
@@ -20,10 +22,61 @@ const CACHE_KEYS = {
   FOOTBALL: 'football_matches',
   CRICKET: 'cricket_matches', 
   BASKETBALL: 'basketball_matches',
+  ESPORTS: 'esports_matches',
   VOLLEYBALL: 'volleyball_matches',
   STANDINGS: 'football_standings',
   SPORTS: 'sports_list'
 };
+
+const REQUEST_TIMEOUTS = {
+  PICKER: 12000,
+  NORMAL: 20000,
+  HEAVY: 30000
+};
+
+// Функция для получения URL логотипа команды
+function getTeamLogo(imageData) {
+  if (!imageData) return '';
+  if (Array.isArray(imageData) && imageData[0]) {
+    return `/api/img/opponent/${imageData[0]}`;
+  }
+  if (typeof imageData === 'string' && imageData) {
+    return `/api/img/opponent/${imageData}`;
+  }
+  return '';
+}
+
+// Функция для получения URL логотипа турнира
+function getTournamentLogo(imageData) {
+  if (!imageData) return '';
+  if (Array.isArray(imageData) && imageData[0]) {
+    return `/api/img/tournament/${imageData[0]}`;
+  }
+  if (typeof imageData === 'string' && imageData) {
+    return `/api/img/tournament/${imageData}`;
+  }
+  return '';
+}
+
+function parseScorePair(item) {
+  const score = item.score || item.scoreLine || null;
+  let opponent1Score = item.opponent1Score ?? item.homeScore ?? null;
+  let opponent2Score = item.opponent2Score ?? item.awayScore ?? null;
+
+  if (opponent1Score == null && opponent2Score == null && score && typeof score === 'string') {
+    const parts = score.split(' ')[0].split(':');
+    if (parts.length === 2) {
+      const p1 = parseInt(parts[0], 10);
+      const p2 = parseInt(parts[1], 10);
+      if (!Number.isNaN(p1) && !Number.isNaN(p2)) {
+        opponent1Score = p1;
+        opponent2Score = p2;
+      }
+    }
+  }
+
+  return { opponent1Score, opponent2Score };
+}
 
 let sportsCache = null;
 const sportIdCache = {}; 
@@ -35,6 +88,10 @@ const SPORT_ID_OVERRIDES = {
   volleyball: 6,
   cricket: 66,
 };
+
+function normalizeSportName(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
 
 async function getSports() {
   if (sportsCache) return sportsCache;
@@ -53,6 +110,7 @@ async function getSports() {
 async function getSportId(name) {
   if (!name) return null;
   const key = String(name).toLowerCase();
+  const normalizedKey = normalizeSportName(key);
 
   if (SPORT_ID_OVERRIDES[key]) {
     console.log(`Using override for ${name}: ID ${SPORT_ID_OVERRIDES[key]}`);
@@ -69,6 +127,13 @@ async function getSportId(name) {
   try {
     const sports = await getSports();
     if (Array.isArray(sports) && sports.length > 0) {
+      const normalizedMatch = sports.find(s => normalizeSportName(s.name) === normalizedKey);
+      if (normalizedMatch) {
+        console.log(`Found normalized match for ${name} in API: ID ${normalizedMatch.id} (name: ${normalizedMatch.name})`);
+        sportIdCache[key] = normalizedMatch.id;
+        return normalizedMatch.id;
+      }
+
       // Ищем точное совпадение
       const exactMatch = sports.find(s => String(s.name).toLowerCase() === key);
       if (exactMatch) {
@@ -134,7 +199,7 @@ function showLoadingAnimation(container) {
     
     const text = document.createElement('p');
     text.className = 'loading-popover__text';
-    text.textContent = 'Загружаем данные...';
+    text.textContent = '';
     
     popover.appendChild(animContainer);
     popover.appendChild(text);
@@ -223,7 +288,7 @@ function formatDateDisplay(dateStr) {
 
 // Возвращает массив доступных дат матча (YYYY-MM-DD) по API
 const availableDatesCache = {};
-async function getAvailableDatesForSport(sportId, rangeDays = { past: 7, future: 7 }) {
+async function getAvailableDatesForSport(sportId, rangeDays = { past: 3, future: 3 }) {
   if (!sportId) return [];
   if (availableDatesCache[sportId]) return availableDatesCache[sportId];
 
@@ -240,7 +305,11 @@ async function getAvailableDatesForSport(sportId, rangeDays = { past: 7, future:
   const ltStart = Math.floor(endDate.getTime() / 1000);
 
   try {
-    const data = await fetchWithCache(`/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&lng=${lng}`, `availableDates_${sportId}_${gtStart}_${ltStart}`, { timeout: 5000 });
+    const data = await fetchWithCache(
+      `/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&count=250&lng=${lng}`,
+      `availableDates_${sportId}_${gtStart}_${ltStart}`,
+      { timeout: REQUEST_TIMEOUTS.PICKER, retries: 1 }
+    );
     if (!data || !Array.isArray(data.items)) return [];
 
     const dates = new Set();
@@ -261,14 +330,7 @@ async function getAvailableDatesForSport(sportId, rangeDays = { past: 7, future:
     dates.add(fixedDates.dayBeforeYesterday);
 
     const sorted = Array.from(dates).sort();
-    // Сортируем так, чтобы сегодня был первым
-    const todayIdx = sorted.indexOf(todayIso);
-    if (todayIdx > 0) {
-      const ordered = sorted.slice(todayIdx).concat(sorted.slice(0, todayIdx));
-      availableDatesCache[sportId] = ordered;
-    } else {
-      availableDatesCache[sportId] = sorted;
-    }
+    availableDatesCache[sportId] = sorted;
     return availableDatesCache[sportId];
   } catch (error) {
     console.warn('Cannot load available dates for sport', sportId, error);
@@ -310,14 +372,10 @@ function buildDatePicker(pickerEl, sportKey, loadFn, availableDates = null) {
     ];
   }
 
-  // Упорядочиваем: сегодня -> будущее -> прошлое
+  // Упорядочиваем по возрастанию (прошлое → сегодня → будущее)
   const todayIso = fixedDates.today;
   dateKeys = [...new Set(dateKeys)];
   dateKeys.sort();
-  const todayIdx = dateKeys.indexOf(todayIso);
-  if (todayIdx > 0) {
-    dateKeys = dateKeys.slice(todayIdx).concat(dateKeys.slice(0, todayIdx));
-  }
 
   dateKeys.forEach(dateStr => {
     const btn = document.createElement('button');
@@ -376,36 +434,54 @@ async function buildDatePickerForSport(pickerEl, sportKey, loadFn) {
 // NOTE: Caching is disabled for now to ensure fresh data is always fetched.
 // The helper function keeps the same signature for compatibility.
 async function fetchWithCache(url, cacheKey, options = {}) {
-  const { timeout = 10000 } = options; // таймаут по умолчанию 10 секунд
+  const {
+    timeout = REQUEST_TIMEOUTS.NORMAL,
+    retries = 0,
+    retryDelay = 400,
+    quiet = false
+  } = options;
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  let lastError = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-  try {
-    const response = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeoutId);
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(`Expected JSON response, got ${contentType}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      clearTimeout(timeoutId);
+      lastError = error;
+
+      const isTimeout = error.name === 'AbortError';
+      if (isTimeout && !quiet) {
+        console.error(`Request timeout for ${url} after ${timeout}ms (attempt ${attempt + 1}/${retries + 1})`);
+      } else if (!isTimeout && !quiet) {
+        console.error(`Error fetching ${url} (attempt ${attempt + 1}/${retries + 1}):`, error);
+      }
+
+      if (attempt < retries) {
+        await new Promise(resolve => setTimeout(resolve, retryDelay * (attempt + 1)));
+        continue;
+      }
     }
-
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      throw new Error(`Expected JSON response, got ${contentType}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    clearTimeout(timeoutId);
-
-    if (error.name === 'AbortError') {
-      console.error(`Request timeout for ${url} after ${timeout}ms`);
-      throw new Error(`Request timeout after ${timeout}ms`);
-    }
-
-    console.error(`Error fetching ${url}:`, error);
-    throw error;
   }
+
+  if (lastError && lastError.name === 'AbortError') {
+    throw new Error(`Request timeout after ${timeout}ms`);
+  }
+  throw lastError;
 }
 
 async function loadMatches() {
@@ -414,6 +490,7 @@ async function loadMatches() {
       loadFootballMatches(currentDates.football),
       loadCricketMatches(currentDates.cricket), 
       loadBasketballMatches(currentDates.basketball),
+      loadEsportsMatches(currentDates.esports),
       loadVolleyballMatches(currentDates.volleyball)
     ]);
   } catch (error) {
@@ -448,40 +525,48 @@ async function loadFootballMatches(dateStr) {
     const gtStart = Math.floor(dayStart.getTime() / 1000);
     const ltStart = Math.floor((dayStart.getTime() + 24 * 60 * 60 * 1000) / 1000);
 
-    const url = isPastDate
-      ? `/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&lng=en`
-      : `/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&lng=${lng}`;
+    console.log("Football dateToLoad:", dateToLoad, "gtStart:", gtStart, "ltStart:", ltStart);
 
-    const cacheKey = isPastDate
-      ? `${CACHE_KEYS.FOOTBALL}_results_${dateToLoad}`
-      : `${CACHE_KEYS.FOOTBALL}_${dateToLoad}`;
+    // For past dates try the Result API first (real scores + images);
+    // fall back to Prematch if Result API is unavailable.
+    let rawItems = [];
+    if (isPastDate) {
+      try {
+        const resultData = await fetchWithCache(
+          `/api/results?sportId=${sportId}&dateFrom=${gtStart}&dateTo=${ltStart}&lng=en`,
+          `${CACHE_KEYS.FOOTBALL}_results_${dateToLoad}`,
+          { timeout: REQUEST_TIMEOUTS.HEAVY, retries: 1 }
+        );
+        rawItems = (resultData.items || []).filter(item => item.type === 1 || item.type == null);
+      } catch (resultErr) {
+        console.warn('Result API unavailable for football, falling back to prematch:', resultErr.message);
+        const fallbackData = await fetchWithCache(
+          `/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&lng=en`,
+          `${CACHE_KEYS.FOOTBALL}_${dateToLoad}`,
+          { timeout: REQUEST_TIMEOUTS.HEAVY, retries: 1 }
+        );
+        rawItems = fallbackData.items || [];
+      }
+    } else {
+      const data = await fetchWithCache(
+        `/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&lng=${lng}`,
+        `${CACHE_KEYS.FOOTBALL}_${dateToLoad}`,
+        { timeout: REQUEST_TIMEOUTS.HEAVY, retries: 1 }
+      );
+      rawItems = data.items || [];
+    }
 
-    console.log("Football dateToLoad:", dateToLoad, "gtStart:", gtStart, "ltStart:", ltStart, "url:", url);
-
-    const data = await fetchWithCache(url, cacheKey, { timeout: 15000 });
     hideLoadingAnimation(footballContainer);
-    console.log("Football API response:", data);
+    console.log("Football API response: items count =", rawItems.length);
 
-    const items = Array.isArray(data.items) ? data.items : [];
-
-    if (!items.length) {
+    if (!rawItems.length) {
       console.log("No matches found for", dateToLoad);
       footballContainer.innerHTML = `<p>No matches for ${formatDateDisplay(dateToLoad)}</p>`;
       return;
     }
 
-    const mapped = items.map(item => {
-      const score = item.score || item.scoreLine || null;
-      let opponent1Score = item.homeScore || item.opponent1Score || null;
-      let opponent2Score = item.awayScore || item.opponent2Score || null;
-      if (!opponent1Score && !opponent2Score && score && typeof score === 'string') {
-        const parts = score.split(' ')[0].split(':');
-        if (parts.length === 2) {
-          opponent1Score = parseInt(parts[0], 10);
-          opponent2Score = parseInt(parts[1], 10);
-        }
-      }
-
+    const mapped = rawItems.map(item => {
+      const { opponent1Score, opponent2Score } = parseScorePair(item);
       return {
         ...item,
         tournamentId: item.tournamentId || item.constSportEventId || item.sportEventId || 'unknown',
@@ -493,7 +578,7 @@ async function loadFootballMatches(dateStr) {
       };
     });
 
-    renderFootball(mapped);
+    renderFootball(mapped, { isPastDate });
   } catch (e) {
     hideLoadingAnimation(footballContainer);
     footballContainer.innerHTML = "<p>Error loading football matches. Please try again later.</p>";
@@ -512,7 +597,8 @@ function isAllowedFootball(event) {
   return ok;
 }
 
-function renderFootball(matches) {
+function renderFootball(matches, options = {}) {
+  const { isPastDate = false } = options;
   console.log("renderFootball called with", matches.length, "matches");
   footballContainer.innerHTML = "";
 
@@ -527,27 +613,14 @@ function renderFootball(matches) {
   const leaguesMap = {};
   filtered.forEach(event => {
     const leagueId = event.tournamentId || 'unknown';
-    if (!leaguesMap[leagueId]) leaguesMap[leagueId] = { league: { name: event.tournamentNameLocalization || 'Unknown League', logo: '/images/default-league.png' }, events: [] };
+    if (!leaguesMap[leagueId]) {
+      const rawLogo = Array.isArray(event.tournamentImage) ? event.tournamentImage[0] : event.tournamentImage;
+      leaguesMap[leagueId] = { league: { name: event.tournamentNameLocalization || 'Unknown League', logo: getTournamentLogo(rawLogo) }, events: [] };
+    }
     leaguesMap[leagueId].events.push(event);
   });
 
-  const filteredLeagues = Object.keys(leaguesMap).length;
-
-  if (filteredLeagues < 3) {
-    const additionalMatches = matches.filter(event => {
-      const leagueId = event.tournamentId || 'unknown';
-      return !leaguesMap[leagueId];
-    }).slice(0, 3 - filteredLeagues);
-    filtered = [...filtered, ...additionalMatches];
-  }
-
-  filtered.forEach(event => {
-    const leagueId = event.tournamentId || 'unknown';
-    if (!leaguesMap[leagueId]) leaguesMap[leagueId] = { league: { name: event.tournamentNameLocalization || 'Unknown League', logo: '/images/default-league.png' }, events: [] };
-    leaguesMap[leagueId].events.push(event);
-  });
-
-  // Сортировка лиг по имени
+  // Sort leagues alphabetically
   const sortedLeagues = Object.keys(leaguesMap).sort((a, b) => {
     const nameA = leaguesMap[a].league.name.toLowerCase();
     const nameB = leaguesMap[b].league.name.toLowerCase();
@@ -560,7 +633,9 @@ function renderFootball(matches) {
     const { league, events } = leaguesMap[leagueId];
     const leagueEl = document.createElement('div');
     leagueEl.className = 'league';
-    leagueEl.innerHTML = `<div class="league__header"><div class="league__logo"><img src="${league.logo}" alt="${league.name}"></div><h2>${league.name}</h2></div>`;
+    if (!isPastDate) {
+      leagueEl.innerHTML = `<div class="league__header"><div class="league__logo">${league.logo ? `<img src="${league.logo}" alt="${league.name}" onerror="this.style.display='none'">` : ''}</div><h2>${league.name}</h2></div>`;
+    }
     
     // Сортировка матчей по времени
     events.sort((a, b) => (a.startDate || 0) - (b.startDate || 0));
@@ -590,10 +665,10 @@ function renderFootball(matches) {
       
       const homeTeamName = event.opponent1NameLocalization || 'Unknown';
       const awayTeamName = event.opponent2NameLocalization || 'Unknown';
-      const homeImg = homeTeamName !== 'Unknown' ? `/api/img/${homeTeamName.replace(/\s+/g, '').toLowerCase()}.png` : '/images/default-team.png';
-      const awayImg = awayTeamName !== 'Unknown' ? `/api/img/${awayTeamName.replace(/\s+/g, '').toLowerCase()}.png` : '/images/default-team.png';
+      const homeImg = getTeamLogo(event.imageOpponent1);
+      const awayImg = getTeamLogo(event.imageOpponent2);
       
-      matchEl.innerHTML = `<div class="team"><div class="team__logo"><img src="${homeImg}" alt="${homeTeamName}"></div><span>${homeTeamName}</span></div><a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="time">${displayTime}</a><div class="team team--2"><span>${awayTeamName}</span><div class="team__logo"><img src="${awayImg}" alt="${awayTeamName}"></div></div>`;
+      matchEl.innerHTML = `<div class="team"><div class="team__logo">${homeImg ? `<img src="${homeImg}" alt="${homeTeamName}" onerror="this.style.display='none'">` : ''}</div><span>${homeTeamName}</span></div><a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="time">${displayTime}</a><div class="team team--2"><span>${awayTeamName}</span><div class="team__logo">${awayImg ? `<img src="${awayImg}" alt="${awayTeamName}" onerror="this.style.display='none'">` : ''}</div></div>`;
       leagueEl.appendChild(matchEl);
     });
     footballContainer.appendChild(leagueEl);
@@ -610,6 +685,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const basketballPicker = document.getElementById('basketballDatePicker');
   buildDatePickerForSport(basketballPicker, 'basketball', loadBasketballMatches).catch(e => console.warn('Date picker build failed (basketball):', e));
+
+  const esportsPicker = document.getElementById('esportsDatePicker');
+  buildDatePickerForSport(esportsPicker, 'esports', loadEsportsMatches).catch(e => console.warn('Date picker build failed (esports):', e));
 
   const volleyballPicker = document.getElementById('volleyballDatePicker');
   buildDatePickerForSport(volleyballPicker, 'volleyball', loadVolleyballMatches).catch(e => console.warn('Date picker build failed (volleyball):', e));
@@ -720,7 +798,7 @@ async function createTomorrowSwiperSlides() {
   
   const text = document.createElement('p');
   text.className = 'loading-popover__text';
-  text.textContent = 'Загружаем завтрашние матчи...';
+  text.textContent = 'Loading...';
   
   popover.appendChild(animContainer);
   popover.appendChild(text);
@@ -781,18 +859,22 @@ async function createTomorrowSwiperSlides() {
     swiperWrapper.innerHTML = '';
 
     tomorrowMatches.forEach(match => {
-      const startTime = match.startTime || Date.now() / 1000;
+      const startTime = match.startDate || (Date.now() / 1000 + 86400);
       const matchDate = new Date(startTime * 1000);
       const formattedDate = matchDate.toLocaleDateString('en-GB', {
         day: 'numeric',
         month: 'long',
         year: 'numeric'
       });
+      const formattedTime = matchDate.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
       
-      const homeTeamName = match.homeTeamName || 'Unknown';
-      const awayTeamName = match.awayTeamName || 'Unknown';
-      const homeImg = homeTeamName !== 'Unknown' ? `/api/img/${homeTeamName.replace(/\s+/g, '').toLowerCase()}.png` : '/images/default-team.png';
-      const awayImg = awayTeamName !== 'Unknown' ? `/api/img/${awayTeamName.replace(/\s+/g, '').toLowerCase()}.png` : '/images/default-team.png';
+      const homeTeamName = match.opponent1NameLocalization || 'Unknown';
+      const awayTeamName = match.opponent2NameLocalization || 'Unknown';
+      const homeImg = getTeamLogo(match.imageOpponent1) || '';
+      const awayImg = getTeamLogo(match.imageOpponent2) || '';
       
       const slide = document.createElement('div');
       slide.className = 'swiper-slide';
@@ -803,24 +885,20 @@ async function createTomorrowSwiperSlides() {
           <div class="slide__content">
             <div class="slide__teams">
               <div class="slide__team">
-                <img src="${homeImg}" alt="${homeTeamName}">
+                ${homeImg ? `<img src="${homeImg}" alt="${homeTeamName}" onerror="this.style.display='none'">` : ''}
               </div>
               <div class="slide__match">
                 <div class="slide__match-title">${homeTeamName} vs ${awayTeamName}</div>
                 <div class="slide__match-date">${formattedDate}</div>
-                <div class="slide__match-scores">
-                  <span>2.35</span>
-                  <span>3.10</span>
-                  <span>2.80</span>
-                </div>
+                <div class="slide__match-time">${formattedTime}</div>
               </div>
               <div class="slide__team">
-                <img src="${awayImg}" alt="${awayTeamName}">
+                ${awayImg ? `<img src="${awayImg}" alt="${awayTeamName}" onerror="this.style.display='none'">` : ''}
               </div>
             </div>
             <div class="slide__mobile">
               <div>${homeTeamName}</div> 
-              <span>${formattedDate}</span> 
+              <span>${formattedDate} ${formattedTime}</span> 
               <div>${awayTeamName}</div>
             </div>
             <div class="slide__timer" data-date="${matchDate.toISOString()}">
@@ -989,19 +1067,51 @@ async function loadCricketMatches(dateStr) {
 
     const gtStart = Math.floor(new Date(dateToLoad).getTime() / 1000);
     const ltStart = Math.floor((new Date(dateToLoad).getTime() + 24 * 60 * 60 * 1000) / 1000);
+    const todayIso = formatDate(new Date());
+    const isPastDate = dateToLoad < todayIso;
 
-    const data = await fetchWithCache(`/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&lng=en`, `${CACHE_KEYS.CRICKET}_${dateToLoad}`, { timeout: 15000 });
+    let items;
+    if (isPastDate) {
+      try {
+        const resultData = await fetchWithCache(
+          `/api/results?sportId=${sportId}&dateFrom=${gtStart}&dateTo=${ltStart}&lng=en`,
+          `${CACHE_KEYS.CRICKET}_results_${dateToLoad}`,
+          { timeout: REQUEST_TIMEOUTS.HEAVY, retries: 1 }
+        );
+        items = (resultData.items || [])
+          .filter(item => item.type === 1 || item.type == null)
+          .map(item => {
+            const { opponent1Score, opponent2Score } = parseScorePair(item);
+            return { ...item, status: 'finished', opponent1Score, opponent2Score };
+          });
+      } catch (resultErr) {
+        console.warn('Result API unavailable for cricket, falling back to prematch:', resultErr.message);
+        const fallbackData = await fetchWithCache(
+          `/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&lng=en`,
+          `${CACHE_KEYS.CRICKET}_${dateToLoad}`,
+          { timeout: REQUEST_TIMEOUTS.HEAVY, retries: 1 }
+        );
+        items = fallbackData.items || [];
+      }
+    } else {
+      const data = await fetchWithCache(
+        `/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&lng=en`,
+        `${CACHE_KEYS.CRICKET}_${dateToLoad}`,
+        { timeout: REQUEST_TIMEOUTS.HEAVY, retries: 1 }
+      );
+      items = data.items || [];
+    }
     hideLoadingAnimation(cricketContainer);
-    console.log("Cricket API response:", data);
+    console.log("Cricket API response:", items);
     
-    if (!data.items || data.items.length === 0) {
+    if (!items.length) {
       console.log("No cricket matches found for", dateToLoad);
       cricketContainer.innerHTML = `<p>No matches for ${formatDateDisplay(dateToLoad)}</p>`;
       return;
     }
     
-    console.log(`Found ${data.items.length} cricket matches, rendering`);
-    renderCricket(data.items, dateToLoad);
+    console.log(`Found ${items.length} cricket matches, rendering`);
+    renderCricket(items, dateToLoad, { isPastDate });
   } catch (e) {
     hideLoadingAnimation(cricketContainer);
     console.error("Error loading cricket matches:", e);
@@ -1052,7 +1162,8 @@ function sortAndGroupMatches(matches) {
   return groupedMatches;
 }
 
-function renderCricket(matches, selectedDate) {
+function renderCricket(matches, selectedDate, options = {}) {
+  const { isPastDate = false } = options;
   cricketContainer.innerHTML = "";
 
   try {
@@ -1078,7 +1189,8 @@ function renderCricket(matches, selectedDate) {
     matchesForDate.forEach(match => {
       const leagueId = match.tournamentId || 'unknown';
       const leagueName = match.tournamentNameLocalization || 'Cricket';
-      const leagueLogo = '/images/default-league.png';
+      const rawLogo = Array.isArray(match.tournamentImage) ? match.tournamentImage[0] : match.tournamentImage;
+      const leagueLogo = getTournamentLogo(rawLogo);
 
       if (!leaguesMap[leagueId]) {
         leaguesMap[leagueId] = {
@@ -1094,12 +1206,14 @@ function renderCricket(matches, selectedDate) {
     leagues.forEach(leagueBlock => {
       const leagueEl = document.createElement('div');
       leagueEl.className = 'league';
-      leagueEl.innerHTML = `
-        <div class="league__header">
-          <div class="league__logo"><img src="${leagueBlock.league.logo}" alt="${leagueBlock.league.name}"></div>
-          <h2>${leagueBlock.league.name}</h2>
-        </div>
-      `;
+      if (!isPastDate) {
+        leagueEl.innerHTML = `
+          <div class="league__header">
+            <div class="league__logo">${leagueBlock.league.logo ? `<img src="${leagueBlock.league.logo}" alt="${leagueBlock.league.name}" onerror="this.style.display='none'">` : ''}</div>
+            <h2>${leagueBlock.league.name}</h2>
+          </div>
+        `;
+      }
 
       const sortedMatches = leagueBlock.matches.slice().sort((a, b) => {
         const aTime = a.__matchDate ? a.__matchDate.getTime() : 0;
@@ -1126,16 +1240,23 @@ function renderCricket(matches, selectedDate) {
 
         const homeTeamName = match.opponent1NameLocalization || 'Unknown';
         const awayTeamName = match.opponent2NameLocalization || 'Unknown';
-        const homeImg = homeTeamName !== 'Unknown' ? `/api/img/${homeTeamName.replace(/\s+/g, '').toLowerCase()}.png` : '/images/default-team.png';
-        const awayImg = awayTeamName !== 'Unknown' ? `/api/img/${awayTeamName.replace(/\s+/g, '').toLowerCase()}.png` : '/images/default-team.png';
+        const homeImg = getTeamLogo(match.imageOpponent1);
+        const awayImg = getTeamLogo(match.imageOpponent2);
+
+        let timeContent;
+        if (match.status === 'finished' && (match.opponent1Score != null || match.opponent2Score != null)) {
+          timeContent = `<strong>${match.opponent1Score ?? 0} - ${match.opponent2Score ?? 0}</strong><span class="hightlights">Highlights</span>`;
+        } else {
+          timeContent = `<strong>${displayDate}</strong><span class="watch">Watch</span>`;
+        }
 
         matchEl.innerHTML = `
           <div class="match__cricket">
             <div class="team">
-              <div class="team__logo"><img src="${homeImg}" alt="${homeTeamName}"></div>
+              <div class="team__logo">${homeImg ? `<img src="${homeImg}" alt="${homeTeamName}" onerror="this.style.display='none'">` : ''}</div>
               <span>${homeTeamName}</span>
             </div>
-            <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="time"><strong>${displayDate}</strong><span class="watch">Watch</span></a>
+            <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="time">${timeContent}</a>
             <div class="team team--2">
               <span>${awayTeamName}</span>
               <div class="team__logo"><img src="${awayImg}" alt="${awayTeamName}"></div>
@@ -1174,15 +1295,45 @@ async function loadBasketballMatches(dateStr) {
 
     const gtStart = Math.floor(new Date(dateToLoad).getTime() / 1000);
     const ltStart = Math.floor((new Date(dateToLoad).getTime() + 24 * 60 * 60 * 1000) / 1000);
+    const todayIso = formatDate(new Date());
+    const isPastDate = dateToLoad < todayIso;
 
-    const data = await fetchWithCache(`/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&lng=en`, `${CACHE_KEYS.BASKETBALL}_${dateToLoad}`, { timeout: 15000 });
-    hideLoadingAnimation(basketballContainer);
-    console.log("Basketball API response:", data);
-    if (Array.isArray(data.items) && data.items.length) {
-      console.log("Basketball sample match:", data.items[0]);
+    let rawItems;
+    if (isPastDate) {
+      try {
+        const resultData = await fetchWithCache(
+          `/api/results?sportId=${sportId}&dateFrom=${gtStart}&dateTo=${ltStart}&lng=en`,
+          `${CACHE_KEYS.BASKETBALL}_results_${dateToLoad}`,
+          { timeout: REQUEST_TIMEOUTS.HEAVY, retries: 1 }
+        );
+        rawItems = (resultData.items || [])
+          .filter(item => item.type === 1 || item.type == null)
+          .map(item => {
+            const { opponent1Score, opponent2Score } = parseScorePair(item);
+            return { ...item, status: 'finished', opponent1Score, opponent2Score };
+          });
+      } catch (resultErr) {
+        console.warn('Result API unavailable for basketball, falling back to prematch:', resultErr.message);
+        const fallbackData = await fetchWithCache(
+          `/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&lng=en`,
+          `${CACHE_KEYS.BASKETBALL}_${dateToLoad}`,
+          { timeout: REQUEST_TIMEOUTS.HEAVY, retries: 1 }
+        );
+        rawItems = fallbackData.items || [];
+      }
+    } else {
+      const data = await fetchWithCache(
+        `/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&lng=en`,
+        `${CACHE_KEYS.BASKETBALL}_${dateToLoad}`,
+        { timeout: REQUEST_TIMEOUTS.HEAVY, retries: 1 }
+      );
+      rawItems = data.items || [];
     }
+    hideLoadingAnimation(basketballContainer);
+    console.log("Basketball API response:", rawItems);
+    if (rawItems.length) console.log("Basketball sample match:", rawItems[0]);
 
-    const matches = Array.isArray(data.items) ? data.items.slice(0, 9) : [];
+    const matches = rawItems.slice(0, 9);
     console.log(`Found ${matches.length} basketball matches`);
     if (matches.length === 0) {
       basketballContainer.innerHTML = `<p>No matches for ${formatDateDisplay(dateToLoad)}</p>`;
@@ -1196,8 +1347,9 @@ async function loadBasketballMatches(dateStr) {
     matches.forEach(match => {
       const leagueId = match.tournamentId || 'unknown';
       if (!leaguesMap[leagueId]) {
+        const rawLogo = Array.isArray(match.tournamentImage) ? match.tournamentImage[0] : match.tournamentImage;
         leaguesMap[leagueId] = {
-          league: { name: match.tournamentNameLocalization || 'Unknown League', logo: '/images/default-league.png' },
+          league: { name: match.tournamentNameLocalization || 'Unknown League', logo: getTournamentLogo(rawLogo) },
           matches: []
         };
       }
@@ -1224,12 +1376,14 @@ async function loadBasketballMatches(dateStr) {
 
       const leagueEl = document.createElement('div');
       leagueEl.className = 'league';
-      leagueEl.innerHTML = `
-        <div class="league__header">
-          <div class="league__logo"><img src="${league.logo}" alt="${league.name}"></div>
-          <h2>${league.name}</h2>
-        </div>
-      `;
+      if (!isPastDate) {
+        leagueEl.innerHTML = `
+          <div class="league__header">
+            <div class="league__logo">${league.logo ? `<img src="${league.logo}" alt="${league.name}" onerror="this.style.display='none'">` : ''}</div>
+            <h2>${league.name}</h2>
+          </div>
+        `;
+      }
 
       sortedMatches.forEach(match => {
         const matchEl = document.createElement('a');
@@ -1248,18 +1402,26 @@ async function loadBasketballMatches(dateStr) {
         
         const homeTeamName = match.opponent1NameLocalization || 'Unknown';
         const awayTeamName = match.opponent2NameLocalization || 'Unknown';
-        const homeImg = homeTeamName !== 'Unknown' ? `/api/img/${homeTeamName.replace(/\s+/g, '').toLowerCase()}.png` : '/images/default-team.png';
-        const awayImg = awayTeamName !== 'Unknown' ? `/api/img/${awayTeamName.replace(/\s+/g, '').toLowerCase()}.png` : '/images/default-team.png';
+        const homeImg = getTeamLogo(match.imageOpponent1);
+        const awayImg = getTeamLogo(match.imageOpponent2);
+
+        // Show score for finished matches
+        let timeContent;
+        if (match.status === 'finished' && (match.opponent1Score != null || match.opponent2Score != null)) {
+          timeContent = `<strong>${match.opponent1Score ?? 0} - ${match.opponent2Score ?? 0}</strong><span class="hightlights">Highlights</span>`;
+        } else {
+          timeContent = `${displayTime}<span class="watch">Watch</span>`;
+        }
         
         matchEl.innerHTML = `
           <div class="team">
-            <div class="team__logo"><img src="${homeImg}" alt="${homeTeamName}"></div>
+            <div class="team__logo">${homeImg ? `<img src="${homeImg}" alt="${homeTeamName}" onerror="this.style.display='none'">` : ''}</div>
             <span>${homeTeamName}</span>
           </div>
-          <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="time">${displayTime}<span class="watch">Watch</span></a>
+          <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="time">${timeContent}</a>
           <div class="team team--2">
             <span>${awayTeamName}</span>
-            <div class="team__logo"><img src="${awayImg}" alt="${awayTeamName}"></div>
+            <div class="team__logo">${awayImg ? `<img src="${awayImg}" alt="${awayTeamName}" onerror="this.style.display='none'">` : ''}</div>
           </div>
         `;
         leagueEl.appendChild(matchEl);
@@ -1294,15 +1456,46 @@ async function loadVolleyballMatches(dateStr) {
 
     const gtStart = Math.floor(new Date(dateToLoad).getTime() / 1000);
     const ltStart = Math.floor((new Date(dateToLoad).getTime() + 24 * 60 * 60 * 1000) / 1000);
+    const todayIso = formatDate(new Date());
+    const isPastDate = dateToLoad < todayIso;
 
-    const data = await fetchWithCache(`/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&lng=en`, `${CACHE_KEYS.VOLLEYBALL}_${dateToLoad}`, { timeout: 15000 });
-    hideLoadingAnimation(volleyballContainer);
-    console.log("Volleyball API response:", data);
-    if (Array.isArray(data.items) && data.items.length) {
-      console.log("Volleyball sample match:", data.items[0]);
+    let rawItems;
+    if (isPastDate) {
+      try {
+        const resultData = await fetchWithCache(
+          `/api/results?sportId=${sportId}&dateFrom=${gtStart}&dateTo=${ltStart}&lng=en`,
+          `${CACHE_KEYS.VOLLEYBALL}_results_${dateToLoad}`,
+          { timeout: REQUEST_TIMEOUTS.HEAVY, retries: 1 }
+        );
+        rawItems = (resultData.items || [])
+          .filter(item => item.type === 1 || item.type == null)
+          .map(item => {
+            const { opponent1Score, opponent2Score } = parseScorePair(item);
+            return { ...item, status: 'finished', opponent1Score, opponent2Score };
+          });
+      } catch (resultErr) {
+        console.warn('Result API unavailable for volleyball, falling back to prematch:', resultErr.message);
+        const fallbackData = await fetchWithCache(
+          `/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&lng=en`,
+          `${CACHE_KEYS.VOLLEYBALL}_${dateToLoad}`,
+          { timeout: REQUEST_TIMEOUTS.HEAVY, retries: 1 }
+        );
+        rawItems = fallbackData.items || [];
+      }
+    } else {
+      const data = await fetchWithCache(
+        `/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&lng=en`,
+        `${CACHE_KEYS.VOLLEYBALL}_${dateToLoad}`,
+        { timeout: REQUEST_TIMEOUTS.HEAVY, retries: 1 }
+      );
+      rawItems = data.items || [];
     }
+    hideLoadingAnimation(volleyballContainer);
+    console.log("Volleyball API response:", rawItems);
+    if (rawItems.length) console.log("Volleyball sample match:", rawItems[0]);
 
-    const matches = Array.isArray(data.items) ? data.items.slice(0, 9) : [];
+    const matches = rawItems.slice(0, 9);
+    console.log(`Found ${matches.length} volleyball matches`);
     console.log(`Found ${matches.length} volleyball matches`);
     if (matches.length === 0) {
       volleyballContainer.innerHTML = `<p>No matches for ${formatDateDisplay(dateToLoad)}</p>`;
@@ -1316,8 +1509,9 @@ async function loadVolleyballMatches(dateStr) {
     matches.forEach(match => {
       const leagueId = match.tournamentId || 'unknown';
       if (!leaguesMap[leagueId]) {
+        const rawLogo = Array.isArray(match.tournamentImage) ? match.tournamentImage[0] : match.tournamentImage;
         leaguesMap[leagueId] = {
-          league: { name: match.tournamentNameLocalization || 'Unknown League', logo: '/images/default-league.png' },
+          league: { name: match.tournamentNameLocalization || 'Unknown League', logo: getTournamentLogo(rawLogo) },
           matches: []
         };
       }
@@ -1343,12 +1537,14 @@ async function loadVolleyballMatches(dateStr) {
 
       const leagueEl = document.createElement('div');
       leagueEl.className = 'league';
-      leagueEl.innerHTML = `
-        <div class="league__header">
-          <div class="league__logo"><img src="${league.logo}" alt="${league.name}"></div>
-          <h2>${league.name}</h2>
-        </div>
-      `;
+      if (!isPastDate) {
+        leagueEl.innerHTML = `
+          <div class="league__header">
+            <div class="league__logo">${league.logo ? `<img src="${league.logo}" alt="${league.name}" onerror="this.style.display='none'">` : ''}</div>
+            <h2>${league.name}</h2>
+          </div>
+        `;
+      }
 
       sortedMatches.forEach(match => {
         const matchEl = document.createElement('a');
@@ -1367,18 +1563,26 @@ async function loadVolleyballMatches(dateStr) {
         
         const homeTeamName = match.opponent1NameLocalization || 'Unknown';
         const awayTeamName = match.opponent2NameLocalization || 'Unknown';
-        const homeImg = homeTeamName !== 'Unknown' ? `/api/img/${homeTeamName.replace(/\s+/g, '').toLowerCase()}.png` : '/images/default-team.png';
-        const awayImg = awayTeamName !== 'Unknown' ? `/api/img/${awayTeamName.replace(/\s+/g, '').toLowerCase()}.png` : '/images/default-team.png';
+        const homeImg = getTeamLogo(match.imageOpponent1);
+        const awayImg = getTeamLogo(match.imageOpponent2);
+
+        // Show score for finished matches
+        let timeContent;
+        if (match.status === 'finished' && (match.opponent1Score != null || match.opponent2Score != null)) {
+          timeContent = `<strong>${match.opponent1Score ?? 0} - ${match.opponent2Score ?? 0}</strong><span class="hightlights">Highlights</span>`;
+        } else {
+          timeContent = `${displayTime}<span class="watch">Watch</span>`;
+        }
         
         matchEl.innerHTML = `
           <div class="team">
-            <div class="team__logo"><img src="${homeImg}" alt="${homeTeamName}"></div>
+            <div class="team__logo">${homeImg ? `<img src="${homeImg}" alt="${homeTeamName}" onerror="this.style.display='none'">` : ''}</div>
             <span>${homeTeamName}</span>
           </div>
-          <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="time">${displayTime}<span class="watch">Watch</span></a>
+          <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="time">${timeContent}</a>
           <div class="team team--2">
             <span>${awayTeamName}</span>
-            <div class="team__logo"><img src="${awayImg}" alt="${awayTeamName}"></div>
+            <div class="team__logo">${awayImg ? `<img src="${awayImg}" alt="${awayTeamName}" onerror="this.style.display='none'">` : ''}</div>
           </div>
         `;
         leagueEl.appendChild(matchEl);
@@ -1391,6 +1595,144 @@ async function loadVolleyballMatches(dateStr) {
     hideLoadingAnimation(volleyballContainer);
     console.error("Volleyball fetch error:", e);
     volleyballContainer.innerHTML = "<p>Error loading volleyball matches. Please try again later.</p>";
+  }
+}
+
+// --- eSports ---
+async function loadEsportsMatches(dateStr) {
+  if (!esportsContainer) return;
+  const dateToLoad = typeof dateStr === 'string' ? dateStr : formatDate(dateStr);
+  console.log('eSports load date:', dateToLoad);
+
+  showLoadingAnimation(esportsContainer);
+  try {
+    const sportId = await getSportId('esports');
+    console.log('eSports sportId:', sportId);
+    if (!sportId) {
+      hideLoadingAnimation(esportsContainer);
+      esportsContainer.innerHTML = '<p>eSports not available</p>';
+      return;
+    }
+
+    const gtStart = Math.floor(new Date(dateToLoad).getTime() / 1000);
+    const ltStart = Math.floor((new Date(dateToLoad).getTime() + 24 * 60 * 60 * 1000) / 1000);
+    const todayIso = formatDate(new Date());
+    const isPastDate = dateToLoad < todayIso;
+
+    let rawItems;
+    const data = await fetchWithCache(
+      `/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&count=250&lng=en`,
+      `${CACHE_KEYS.ESPORTS}_${dateToLoad}`,
+      { timeout: 15000, retries: 0, quiet: true }
+    );
+    rawItems = data.items || [];
+
+    if (isPastDate) {
+      rawItems = rawItems.map(item => {
+        const { opponent1Score, opponent2Score } = parseScorePair(item);
+        return { ...item, status: 'finished', opponent1Score, opponent2Score };
+      });
+    }
+
+    hideLoadingAnimation(esportsContainer);
+    console.log('eSports API response:', rawItems);
+    if (rawItems.length) console.log('eSports sample match:', rawItems[0]);
+
+    const matches = rawItems.slice(0, 9);
+    console.log(`Found ${matches.length} esports matches`);
+    if (matches.length === 0) {
+      esportsContainer.innerHTML = `<p>No matches for ${formatDateDisplay(dateToLoad)}</p>`;
+      return;
+    }
+
+    esportsContainer.innerHTML = '';
+
+    const leaguesMap = {};
+    matches.forEach(match => {
+      const leagueId = match.tournamentId || 'unknown';
+      if (!leaguesMap[leagueId]) {
+        const rawLogo = Array.isArray(match.tournamentImage) ? match.tournamentImage[0] : match.tournamentImage;
+        leaguesMap[leagueId] = {
+          league: { name: match.tournamentNameLocalization || 'Unknown League', logo: getTournamentLogo(rawLogo) },
+          matches: []
+        };
+      }
+      leaguesMap[leagueId].matches.push(match);
+    });
+
+    const leagues = Object.values(leaguesMap)
+      .sort((a, b) => a.league.name.localeCompare(b.league.name))
+      .slice(0, 3);
+
+    leagues.forEach(leagueBlock => {
+      const league = leagueBlock.league;
+      const leagueMatches = leagueBlock.matches;
+      if (!leagueMatches || leagueMatches.length === 0) return;
+
+      const sortedMatches = leagueMatches.slice().sort((a, b) => {
+        const aTime = a.startDate || 0;
+        const bTime = b.startDate || 0;
+        return aTime - bTime;
+      });
+
+      const leagueEl = document.createElement('div');
+      leagueEl.className = 'league';
+      if (!isPastDate) {
+        leagueEl.innerHTML = `
+          <div class="league__header">
+            <div class="league__logo">${league.logo ? `<img src="${league.logo}" alt="${league.name}" onerror="this.style.display='none'">` : ''}</div>
+            <h2>${league.name}</h2>
+          </div>
+        `;
+      }
+
+      sortedMatches.forEach(match => {
+        const matchEl = document.createElement('a');
+        matchEl.className = 'match';
+        matchEl.href = '#';
+
+        const startTime = match.startDate || Date.now() / 1000;
+        const matchDate = new Date(startTime * 1000);
+        const displayTime = matchDate.toLocaleString('en-GB', {
+          day: 'numeric',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }).replace(',', '');
+
+        const homeTeamName = match.opponent1NameLocalization || 'Unknown';
+        const awayTeamName = match.opponent2NameLocalization || 'Unknown';
+        const homeImg = getTeamLogo(match.imageOpponent1);
+        const awayImg = getTeamLogo(match.imageOpponent2);
+
+        let timeContent;
+        if (match.status === 'finished' && (match.opponent1Score != null || match.opponent2Score != null)) {
+          timeContent = `<strong>${match.opponent1Score ?? 0} - ${match.opponent2Score ?? 0}</strong><span class="hightlights">Highlights</span>`;
+        } else {
+          timeContent = `${displayTime}<span class="watch">Watch</span>`;
+        }
+
+        matchEl.innerHTML = `
+          <div class="team">
+            <div class="team__logo">${homeImg ? `<img src="${homeImg}" alt="${homeTeamName}" onerror="this.style.display='none'">` : ''}</div>
+            <span>${homeTeamName}</span>
+          </div>
+          <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="time">${timeContent}</a>
+          <div class="team team--2">
+            <span>${awayTeamName}</span>
+            <div class="team__logo">${awayImg ? `<img src="${awayImg}" alt="${awayTeamName}" onerror="this.style.display='none'">` : ''}</div>
+          </div>
+        `;
+        leagueEl.appendChild(matchEl);
+      });
+
+      esportsContainer.appendChild(leagueEl);
+    });
+  } catch (e) {
+    hideLoadingAnimation(esportsContainer);
+    console.warn('eSports fetch fallback:', e.message || e);
+    esportsContainer.innerHTML = `<p>No matches for ${formatDateDisplay(dateToLoad)}</p>`;
   }
 }
 
@@ -1450,9 +1792,10 @@ async function loadStandings(league = 39, season = 2023, containerId = 'leagueTa
            const logoElement = document.createElement('div');
            logoElement.className = 'teams__item';
            logoElement.innerHTML = `
-             <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank"><img src="/api/img/${teamName.replace(/\s+/g, '').toLowerCase()}.png" 
+             <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank"><img src="/api/img/opponent/${teamName.replace(/\s+/g, '').toLowerCase()}.png" 
                   alt="${teamName}" 
-                  title="${teamName}"></a>
+                  title="${teamName}"
+                  onerror="this.style.display='none'"></a>
            `;
            logosContainer.appendChild(logoElement);
          }
@@ -1556,6 +1899,121 @@ async function debugSportIds() {
   console.log('=== END DEBUG ===');
 }
 
+// ---------------------------------------------------------------------------
+// Teams section: collect unique teams from today's matches across all 4 sports
+// and populate #teamsLogos. Topic filter buttons (#teamsTopics) filter by sport.
+// ---------------------------------------------------------------------------
+
+// In-memory store for team cards split by sport
+const _teamsBySport = { football: [], cricket: [], basketball: [], volleyball: [] };
+let _activeTeamSport = 'all';
+
+function renderTeamLogos(filter) {
+  const container = document.getElementById('teamsLogos');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  const sportsToShow = (filter && filter !== 'all')
+    ? [filter]
+    : Object.keys(_teamsBySport);
+
+  sportsToShow.forEach(sport => {
+    (_teamsBySport[sport] || []).forEach(team => {
+      const item = document.createElement('div');
+      item.className = 'teams__item';
+      item.dataset.sport = sport;
+      item.innerHTML = `
+        <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank">
+          <img src="${team.logo}" alt="${team.name}" title="${team.name}"
+               onerror="this.src='/images/default-team.png'">
+        </a>
+      `;
+      container.appendChild(item);
+    });
+  });
+
+  if (!container.children.length) {
+    container.innerHTML = '<p style="padding:16px;opacity:.6">No teams available</p>';
+  }
+}
+
+function collectTeamsFromMatches(sportKey, items) {
+  const seen = new Set();
+  const teams = [];
+  (items || []).forEach(item => {
+    const pairs = [
+      { name: item.opponent1NameLocalization, img: Array.isArray(item.imageOpponent1) ? item.imageOpponent1[0] : item.imageOpponent1 },
+      { name: item.opponent2NameLocalization, img: Array.isArray(item.imageOpponent2) ? item.imageOpponent2[0] : item.imageOpponent2 },
+    ];
+    pairs.forEach(({ name, img }) => {
+      if (!name || seen.has(name)) return;
+      seen.add(name);
+      teams.push({ name, logo: getTeamLogo(img) });
+    });
+  });
+  _teamsBySport[sportKey] = teams;
+}
+
+async function loadTeamsLogos() {
+  const todayStr = formatDate(new Date());
+  const dayStart = new Date(todayStr);
+  dayStart.setHours(0, 0, 0, 0);
+  const gtStart = Math.floor(dayStart.getTime() / 1000);
+  const ltStart = gtStart + 24 * 3600;
+
+  const sportKeys = ['football', 'cricket', 'basketball', 'esports', 'volleyball'];
+
+  await Promise.allSettled(sportKeys.map(async sport => {
+    try {
+      const sportId = await getSportId(sport);
+      if (!sportId) return;
+      const data = await fetchWithCache(
+        `/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&lng=en`,
+        `teams_today_${sport}_${todayStr}`,
+        { timeout: REQUEST_TIMEOUTS.NORMAL, retries: 1 }
+      );
+      if (data && Array.isArray(data.items)) {
+        collectTeamsFromMatches(sport, data.items);
+      }
+    } catch (e) {
+      console.warn(`Teams: failed to load ${sport}`, e);
+    }
+  }));
+
+  renderTeamLogos(_activeTeamSport);
+
+  // Wire up topic filter buttons
+  const topicsContainer = document.getElementById('teamsTopics');
+  if (topicsContainer) {
+    topicsContainer.addEventListener('click', e => {
+      const btn = e.target.closest('[data-i18n]');
+      if (!btn) return;
+
+      // Map i18n key to sport key
+      const keyMap = {
+        'teams.topic.football': 'football',
+        'teams.topic.cricket': 'cricket',
+        'teams.topic.basketball': 'basketball',
+        'teams.topic.volleyball': 'volleyball',
+        'teams.topic.esports': 'all',
+        'teams.topic.tennis': 'all',
+        'teams.topic.mma': 'all',
+      };
+      const i18nKey = btn.getAttribute('data-i18n') || '';
+      _activeTeamSport = keyMap[i18nKey] || 'all';
+
+      // Update active class
+      topicsContainer.querySelectorAll('[data-i18n]').forEach(b => {
+        b.classList.remove('news__topic--selected', 'teams__topic--selected');
+      });
+      btn.classList.add('news__topic--selected');
+
+      renderTeamLogos(_activeTeamSport);
+    });
+  }
+}
+
 // Загружаем турнирную таблицу с обработкой ошибок
 document.addEventListener('DOMContentLoaded', function() {
   // Загружаем таблицу с задержкой, чтобы не перегружать API
@@ -1564,6 +2022,11 @@ document.addEventListener('DOMContentLoaded', function() {
       console.warn('Failed to load standings:', err);
     });
   }, 1000);
+
+  // Загружаем логотипы команд
+  setTimeout(() => {
+    loadTeamsLogos().catch(err => console.warn('Failed to load teams logos:', err));
+  }, 1500);
 });
 
 // Добавляем глобальные функции для отладки

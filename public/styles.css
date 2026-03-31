@@ -835,6 +835,7 @@ header {
   column-gap: 24px;
   padding: 20px 0;
   border-top: 1px solid var(--vulcan-4, rgba(9, 10, 18, 0.05));
+  width: 100%;
 }
 .sports .league:nth-child(n+4) {
   display: none;

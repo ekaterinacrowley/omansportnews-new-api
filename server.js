@@ -9,7 +9,7 @@ import { exec } from 'child_process';
 
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(__filename); 
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -483,6 +483,7 @@ app.get("/api/events", async (req, res) => {
     };
     if (gtStart) params.gtStart = Number(gtStart);
     if (ltStart) params.ltStart = Number(ltStart);
+    if (req.query.count) params.count = Number(req.query.count);
 
     const response = await axios.get(
       "https://cpservm.com/gateway/marketing/datafeed/prematch/api/v2/sportevents",
@@ -491,13 +492,84 @@ app.get("/api/events", async (req, res) => {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        timeout: 25000,
       }
     );
 
     res.json(response.data);
   } catch (e) {
     console.log("MATCHES ERROR:", e.response?.data || e.message);
+    const sportId = String(req.query.sportId || req.query.sportIds || '');
+    if (sportId === '40') {
+      return res.json({ items: [] });
+    }
     res.status(500).json({ error: "events error" });
+  }
+});
+
+// /api/results?sportId=X&dateFrom=unixSec&dateTo=unixSec
+// Two-step: 1) get tournaments with results for the period, 2) get sportevents with scores
+app.get("/api/results", async (req, res) => {
+  try {
+    const token = await getToken();
+    const sportId = req.query.sportId;
+    const dateFrom = Number(req.query.dateFrom);
+    const dateTo   = Number(req.query.dateTo);
+    const lng      = req.query.lng || "en";
+
+    if (!sportId || !dateFrom || !dateTo) {
+      return res.status(400).json({ error: "sportId, dateFrom, dateTo are required" });
+    }
+
+    // Step A — tournaments that have results in this date range
+    const tournamentsRes = await axios.get(
+      "https://cpservm.com/gateway/marketing/result/api/v1/tournaments",
+      {
+        params: { ref: REF, sportId, dateFrom, dateTo, lng },
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    );
+
+    const tournaments = tournamentsRes.data.items || [];
+    if (!tournaments.length) {
+      return res.json({ items: [] });
+    }
+
+    const tournamentIds = tournaments.map(t => t.tournamentId).join(",");
+
+    // Step B — sport events with scores for those tournaments
+    const eventsRes = await axios.get(
+      "https://cpservm.com/gateway/marketing/result/api/v1/sportevents",
+      {
+        params: { ref: REF, tournamentIds, dateFrom, dateTo, lng },
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    );
+
+    // Attach tournament info (name, image) to each event
+    const tournamentMap = {};
+    tournaments.forEach(t => { tournamentMap[t.tournamentId] = t; });
+
+    const items = (eventsRes.data.items || []).map(ev => {
+      // Result API events may have constSportEventId linking to a tournament
+      // We match via the tournament list or leave as-is
+      const tid = ev.tournamentId;
+      const t = tid ? tournamentMap[tid] : null;
+      return {
+        ...ev,
+        tournamentNameLocalization: ev.tournamentNameLocalization || (t && t.tournamentNameLocalization) || "Unknown",
+        tournamentImage: ev.tournamentImage || (t && t.tournamentImage ? [t.tournamentImage] : null)
+      };
+    });
+
+    res.json({ items });
+
+  } catch (e) {
+    console.error("RESULTS ERROR:", e.response?.data || e.message);
+    if (String(req.query.sportId || '') === '40') {
+      return res.json({ items: [] });
+    }
+    res.status(500).json({ error: "results error", details: e.response?.data || e.message });
   }
 });
 
@@ -580,51 +652,41 @@ app.get("/api/results-events", async (req, res) => {
   }
 })
 
-// helper to stream an image from the marketing service or redirect to S3
-// images are stored in a private S3 bucket; cpservm.com is a CNAME that simply
-// returns a PermanentRedirect error telling clients to use the proper endpoint.
-//
-// The ideal solution is for the provider to supply pre‑signed URLs, but until
-// then we can either redirect the browser to the suggested host or act as a
-// proxy and let the client see the S3 error (usually 403).
-app.get('/api/img/:name', async (req, res) => {
-  const { name } = req.params;
-  if (!name) return res.status(400).send('name required');
+// Прокси для изображений
+app.get('/api/img/:type/:image', async (req, res) => {
+  const { type, image } = req.params;
 
-  const s3url = `https://s3.amazonaws.com/downloads/${encodeURIComponent(name)}`;
+  let folderPath;
+  if (type === 'tournament') {
+    folderPath = 'logo-champ';
+  } else if (type === 'opponent') {
+    folderPath = 'logo_teams';
+  } else {
+    return res.status(400).send('Invalid type');
+  }
+
+  const url = `https://nimblecd.com/sfiles/${folderPath}/${image}`;
 
   try {
-    const url = `https://cpservm.com/downloads/${encodeURIComponent(name)}`;
-    const r = await axios.get(url, {
+    const response = await axios.get(url, {
       responseType: 'stream',
-      maxRedirects: 0,
-      validateStatus: (st) => st < 600
+      timeout: 10000,
+      validateStatus: (status) => status < 400
     });
 
-    if (r.status === 200) {
-      res.setHeader('Content-Type', r.headers['content-type'] || 'application/octet-stream');
-      return r.data.pipe(res);
+    if (response.status === 200) {
+      res.setHeader('Content-Type', response.headers['content-type'] || 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return response.data.pipe(res);
     }
-
-    if (r.status === 301 && r.data) {
-      let body = '';
-      for await (const chunk of r.data) body += chunk;
-      const m = body.match(/<Endpoint>([^<]+)<\/Endpoint>/);
-      if (m) {
-        const endpoint = m[1];
-        const redirectUrl = `https://${endpoint}/downloads/${encodeURIComponent(name)}`;
-        return res.redirect(302, redirectUrl);
-      }
-    }
-
-    // if cpservm gave some other status (529 etc), just redirect straight to S3
-    console.warn('IMAGE PROXY non-redirect status', r.status);
-    return res.redirect(302, s3url);
   } catch (err) {
-    console.error('IMAGE PROXY FAIL:', err.message);
-    // upstream hiccup (529 etc) – still redirect, letting browser see 403
-    return res.redirect(302, s3url);
+    console.log('[IMAGE] Failed:', err.message);
   }
+
+  // Прозрачный пиксель как fallback
+  const transparentPixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+  res.setHeader('Content-Type', 'image/png');
+  res.send(transparentPixel);
 });
 
 // Статика

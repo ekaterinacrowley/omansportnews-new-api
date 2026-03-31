@@ -456,6 +456,7 @@ app.get("/api/events", async(req,res)=>{
     }
     if (gtStart) params.gtStart = Number(gtStart)
     if (ltStart) params.ltStart = Number(ltStart)
+    if (req.query.count) params.count = Number(req.query.count)
 
     const response = await axios.get(
       "https://cpservm.com/gateway/marketing/datafeed/prematch/api/v2/sportevents",
@@ -463,7 +464,8 @@ app.get("/api/events", async(req,res)=>{
         params,
         headers:{
           Authorization:`Bearer ${token}`
-        }
+        },
+        timeout: 25000,
       }
     )
 
@@ -597,51 +599,41 @@ app.get("/api/results-events", async (req, res) => {
   }
 })
 
-// helper to stream an image from the marketing service or redirect to S3
-// images are stored in a private S3 bucket; cpservm.com is a CNAME that simply
-// returns a PermanentRedirect error telling clients to use the proper endpoint.
-//
-// The ideal solution is for the provider to supply pre‑signed URLs, but until
-// then we can either redirect the browser to the suggested host or act as a
-// proxy and let the client see the S3 error (usually 403).
-app.get('/api/img/:name', async (req, res) => {
-  const { name } = req.params;
-  if (!name) return res.status(400).send('name required');
+// Прокси для изображений
+app.get('/api/img/:type/:image', async (req, res) => {
+  const { type, image } = req.params;
 
-  const s3url = `https://s3.amazonaws.com/downloads/${encodeURIComponent(name)}`;
+  let folderPath;
+  if (type === 'tournament') {
+    folderPath = 'logo-champ';
+  } else if (type === 'opponent') {
+    folderPath = 'logo_teams';
+  } else {
+    return res.status(400).send('Invalid type');
+  }
+
+  const url = `https://nimblecd.com/sfiles/${folderPath}/${image}`;
 
   try {
-    const url = `https://cpservm.com/downloads/${encodeURIComponent(name)}`;
-    const r = await axios.get(url, {
+    const response = await axios.get(url, {
       responseType: 'stream',
-      maxRedirects: 0,
-      validateStatus: (st) => st < 600
+      timeout: 10000,
+      validateStatus: (status) => status < 400
     });
 
-    if (r.status === 200) {
-      res.setHeader('Content-Type', r.headers['content-type'] || 'application/octet-stream');
-      return r.data.pipe(res);
+    if (response.status === 200) {
+      res.setHeader('Content-Type', response.headers['content-type'] || 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return response.data.pipe(res);
     }
-
-    if (r.status === 301 && r.data) {
-      let body = '';
-      for await (const chunk of r.data) body += chunk;
-      const m = body.match(/<Endpoint>([^<]+)<\/Endpoint>/);
-      if (m) {
-        const endpoint = m[1];
-        const redirectUrl = `https://${endpoint}/downloads/${encodeURIComponent(name)}`;
-        return res.redirect(302, redirectUrl);
-      }
-    }
-
-    // if cpservm gave some other status (529 etc), just redirect straight to S3
-    console.warn('IMAGE PROXY non-redirect status', r.status);
-    return res.redirect(302, s3url);
   } catch (err) {
-    console.error('IMAGE PROXY FAIL:', err.message);
-    // upstream hiccup (529 etc) – still redirect, letting browser see 403
-    return res.redirect(302, s3url);
+    console.log('[IMAGE] Failed:', err.message);
   }
+
+  // Прозрачный пиксель как fallback
+  const transparentPixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+  res.setHeader('Content-Type', 'image/png');
+  res.send(transparentPixel);
 });
 
 // Статика
