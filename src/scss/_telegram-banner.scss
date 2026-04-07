@@ -15,4 +15,11 @@
         font-weight: 500;
         line-height: 1.2;
     }
+
+    &__btn {
+        &:hover {
+            background: var(--white-100);
+            color: var(--main-100, #008AFF);
+        }
+    }
 }  

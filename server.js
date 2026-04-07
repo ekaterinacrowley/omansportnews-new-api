@@ -17,9 +17,9 @@ const PORT = process.env.PORT || 5000;
 
 const NEWS_KEY = process.env.NEWS_API_KEY || "9455fa9a233f46f290770aa1018c93e6";
 
-const REF = process.env.REF
-const CLIENT_ID = process.env.CLIENT_ID
-const CLIENT_SECRET = process.env.CLIENT_SECRET
+const REF = process.env.REF || "282";
+const CLIENT_ID = process.env.CLIENT_ID || "partners-911cc01e4efa0d3b45a6ffbb059870d8";
+const CLIENT_SECRET = process.env.CLIENT_SECRET || "kMA3FPllT%H7pFl7%H*lj7vnNthASLnVPb&g91JD9UmC3fDtdQLi7g9rvXjQjHv0";
 
 let TOKEN = null
 let TOKEN_EXPIRE = 0
@@ -51,7 +51,10 @@ async function getSports() {
 
   const response = await axios.get(
     `https://cpservm.com/gateway/marketing/datafeed/directories/api/v2/sports?ref=${REF}`,
-    { headers:{ Authorization:`Bearer ${token}` } }
+    {
+      headers:{ Authorization:`Bearer ${token}` },
+      timeout: 12000,
+    }
   )
 
   sportsCache = response.data.items || []
@@ -343,11 +346,64 @@ app.get("/news", async (req, res) => {
     const topic = req.query.q || "Football";
     // Map site lang codes to NewsAPI supported language codes
     const LANG_MAP = { en: 'en', sa: 'ar', india: 'en', bangladesh: 'en', pakistan: 'en' };
+    const GEO_MAP = {
+      en: { gl: 'US', ceid: 'US:en' },
+      ar: { gl: 'SA', ceid: 'SA:ar' }
+    };
     const language = LANG_MAP[req.query.lang] || 'en';
-    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic)}&language=${language}&apiKey=${NEWS_KEY}`;
-    const response = await axios.get(url);
+    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic)}&language=${language}&sortBy=publishedAt&pageSize=20&apiKey=${NEWS_KEY}`;
 
-    let articles = response.data.articles.map(article => ({
+    const fetchGoogleNewsFallback = async () => {
+      const geo = GEO_MAP[language] || GEO_MAP.en;
+      const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(topic)}&hl=${language}&gl=${geo.gl}&ceid=${geo.ceid}`;
+      const rssResponse = await axios.get(rssUrl, { timeout: 7000, responseType: 'text' });
+      const rssText = String(rssResponse.data || '');
+
+      const items = [];
+      const itemRegex = /<item>([\s\S]*?)<\/item>/gi;
+      let match;
+      while ((match = itemRegex.exec(rssText)) !== null && items.length < 20) {
+        const chunk = match[1];
+        const take = (tag) => {
+          const m = chunk.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+          return m ? m[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : '';
+        };
+
+        const title = take('title');
+        const link = take('link');
+        const description = take('description').replace(/<[^>]+>/g, '').trim();
+        const publishedAt = take('pubDate');
+        if (!title || !link) continue;
+
+        items.push({
+          title,
+          description,
+          url: link,
+          imageUrl: null,
+          publishedAt
+        });
+      }
+
+      return items;
+    };
+
+    const response = await axios.get(url, { timeout: 7000 });
+
+    // NewsAPI can return non-ok payload with 200 status (e.g. rate limit or invalid key)
+    if (response.data?.status && response.data.status !== 'ok') {
+      console.warn("NewsAPI non-ok response:", {
+        status: response.data.status,
+        code: response.data.code,
+        message: response.data.message,
+        topic,
+        language,
+      });
+      const fallbackArticles = await fetchGoogleNewsFallback();
+      return res.json({ articles: fallbackArticles });
+    }
+
+    const sourceArticles = Array.isArray(response.data?.articles) ? response.data.articles : [];
+    let articles = sourceArticles.map(article => ({
       title: article.title,
       description: article.description,
       url: article.url,
@@ -356,8 +412,60 @@ app.get("/news", async (req, res) => {
     }));
     res.json({ articles });
   } catch (err) {
-    console.error("News proxy error:", err);
-    res.status(500).json({ error: "News proxy error" });
+    console.warn("News proxy fallback:", {
+      topic: req.query.q || "Football",
+      lang: req.query.lang || 'en',
+      status: err.response?.status,
+      message: err.message,
+    });
+
+    try {
+      const topic = req.query.q || "Football";
+      const LANG_MAP = { en: 'en', sa: 'ar', india: 'en', bangladesh: 'en', pakistan: 'en' };
+      const GEO_MAP = {
+        en: { gl: 'US', ceid: 'US:en' },
+        ar: { gl: 'SA', ceid: 'SA:ar' }
+      };
+      const language = LANG_MAP[req.query.lang] || 'en';
+      const geo = GEO_MAP[language] || GEO_MAP.en;
+      const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(topic)}&hl=${language}&gl=${geo.gl}&ceid=${geo.ceid}`;
+      const rssResponse = await axios.get(rssUrl, { timeout: 7000, responseType: 'text' });
+      const rssText = String(rssResponse.data || '');
+
+      const articles = [];
+      const itemRegex = /<item>([\s\S]*?)<\/item>/gi;
+      let match;
+      while ((match = itemRegex.exec(rssText)) !== null && articles.length < 20) {
+        const chunk = match[1];
+        const take = (tag) => {
+          const m = chunk.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+          return m ? m[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : '';
+        };
+
+        const title = take('title');
+        const link = take('link');
+        const description = take('description').replace(/<[^>]+>/g, '').trim();
+        const publishedAt = take('pubDate');
+        if (!title || !link) continue;
+
+        articles.push({
+          title,
+          description,
+          url: link,
+          imageUrl: null,
+          publishedAt
+        });
+      }
+
+      return res.json({ articles });
+    } catch (rssErr) {
+      console.warn("Google News RSS fallback failed:", {
+        status: rssErr.response?.status,
+        message: rssErr.message,
+      });
+      // Keep endpoint stable for UI: avoid 500/504 storms on third-party failures.
+      return res.json({ articles: [] });
+    }
   }
 });
 
@@ -389,17 +497,14 @@ app.get("/popular/all", (req, res) => {
 
 app.get("/api/sports", async (req,res)=>{
   try{
-    const token = await getToken()
-
-    const response = await axios.get(
-      `https://cpservm.com/gateway/marketing/datafeed/directories/api/v2/sports?ref=${REF}`,
-      { headers:{ Authorization:`Bearer ${token}` } }
-    )
-
-    res.json(response.data)
+    const items = await getSports()
+    res.json({ items })
 
   }catch(e){
     console.log("SPORTS ERROR:", e.response?.data || e.message)
+    if (Array.isArray(sportsCache) && sportsCache.length) {
+      return res.json({ items: sportsCache })
+    }
     res.status(500).json({ error:"sports error" })
   }
 })
@@ -415,23 +520,86 @@ app.get("/api/events", async (req, res) => {
       ref: REF,
       sportIds: sportId,
       lng: req.query.lng || "en",
+      partnerLink: 'https://reffpa.com/L?tag=d_5453931m_1599c_&site=5453931&ad=1599',
     };
     if (gtStart) params.gtStart = Number(gtStart);
     if (ltStart) params.ltStart = Number(ltStart);
     if (req.query.count) params.count = Number(req.query.count);
 
-    const response = await axios.get(
-      "https://cpservm.com/gateway/marketing/datafeed/prematch/api/v2/sportevents",
-      {
-        params,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        timeout: 25000,
-      }
-    );
+    const requestConfig = {
+      params,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      timeout: 25000,
+    };
 
-    res.json(response.data);
+    const [prematchResult, liveResult] = await Promise.allSettled([
+      axios.get(
+        "https://cpservm.com/gateway/marketing/datafeed/prematch/api/v2/sportevents",
+        requestConfig
+      ),
+      axios.get(
+        "https://cpservm.com/gateway/marketing/datafeed/live/api/v2/sportevents",
+        requestConfig
+      ),
+    ]);
+
+    const prematchItems = prematchResult.status === "fulfilled"
+      ? (prematchResult.value.data.items || [])
+      : [];
+    const liveItems = liveResult.status === "fulfilled"
+      ? (liveResult.value.data.items || [])
+      : [];
+
+    if (!prematchItems.length && !liveItems.length) {
+      if (prematchResult.status === "rejected" && liveResult.status === "rejected") {
+        throw prematchResult.reason;
+      }
+      return res.json({ count: 0, items: [] });
+    }
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    const statusFromGameStatus = (gameStatus) => {
+      const code = Number(gameStatus);
+      if (!Number.isFinite(code)) return null;
+      if (code === 1) return "finished";
+      if (code === 4) return "canceled";
+      if (code === 32) return "interrupted";
+      return "live";
+    };
+
+    const normalizeItem = (item) => {
+      const fullScore = (item && typeof item.fullScore === "object") ? item.fullScore : null;
+      const curScore = (item && typeof item.curScore === "object") ? item.curScore : null;
+      const status =
+        statusFromGameStatus(item.gameStatus)
+        || (typeof item.status === "string" ? item.status : null)
+        || (item.startDate && item.startDate <= nowSec ? "in_progress" : "scheduled");
+
+      return {
+        ...item,
+        status,
+        opponent1Score: item.opponent1Score ?? fullScore?.sc1 ?? curScore?.sc1 ?? null,
+        opponent2Score: item.opponent2Score ?? fullScore?.sc2 ?? curScore?.sc2 ?? null,
+      };
+    };
+
+    const eventKey = (item) => {
+      const baseId = item.mainConstSportEventId || item.constSportEventId || item.sportEventId;
+      return String(baseId || "") + "_" + String(item.period ?? 0);
+    };
+
+    const mergedMap = new Map();
+    prematchItems.forEach((item) => mergedMap.set(eventKey(item), normalizeItem(item)));
+    liveItems.forEach((item) => mergedMap.set(eventKey(item), normalizeItem(item)));
+
+    const items = Array.from(mergedMap.values()).sort((a, b) => (a.startDate || 0) - (b.startDate || 0));
+
+    res.json({
+      count: items.length,
+      items,
+    });
   } catch (e) {
     console.log("MATCHES ERROR:", e.response?.data || e.message);
     const sportId = String(req.query.sportId || req.query.sportIds || '');

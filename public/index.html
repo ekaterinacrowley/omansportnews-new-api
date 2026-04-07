@@ -511,7 +511,93 @@
         </li>
     </ul>
 </div> 
+<!-- <div class="redirect-popup open" data-redirect-url="https://reffpa.com/L?tag=d_5453931m_1599c_&site=5453931&ad=1599"> -->
+   <div class="redirect-popup">
+    <div class="redirect-popup__content">
+        <div class="redirect-popup__top">        
+            <div class="redirect-popup__title" data-i18n="redirect.title">Full experience on the website</div>
+        <div class="redirect-popup__subtitle" data-i18n="redirect.subtitle">Keep going with full functionality there</div>
+        </div>
+        <div class="redirect-popup__banner">
+            <div class="redirect-popup__banner-title" data-i18n="redirect.bannerTitle">One of the best on the market</div>
+            <div class="redirect-popup__banner-text" data-i18n="redirect.bannerText">Fast, simple, and secure</div>
+            <div class="redirect-popup__image">
+                <img src="images/redirect-img.webp"> 
+            </div>
+        </div>
+        <div class="redirect-popup__progress">
+            <div class="redirect-popup__progress-bar">
+                <div class="redirect-popup__progress-bar-inner"></div>
+            </div>
+            <span data-i18n="redirect.progress" data-i18n-html="true">Redirecting in <span id="redirect-countdown">3</span> seconds…</span>
+        </div>
+    </div>
+</div>
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const redirectPopup = document.querySelector('.redirect-popup');
+    const progressBarInner = redirectPopup ? redirectPopup.querySelector('.redirect-popup__progress-bar-inner') : null;
+    if (!redirectPopup) {
+        return;
+    }
+
+    const DEFAULT_SECONDS = 3;
+    let countdownInterval = null;
+
+    function getCountdownElement() {
+        return document.getElementById('redirect-countdown');
+    }
+
+    function stopCountdown() {
+        if (countdownInterval) {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+        }
+    }
+
+    function setCountdownValue(value) {
+        const countdownElement = getCountdownElement();
+        if (countdownElement) {
+            countdownElement.textContent = String(value);
+        }
+    }
+
+    function startCountdown() {
+        let timeLeft = DEFAULT_SECONDS;
+        stopCountdown();
+        setCountdownValue(timeLeft);
+
+        countdownInterval = setInterval(function() {
+            timeLeft -= 1;
+            setCountdownValue(Math.max(timeLeft, 0));
+
+            if (timeLeft <= 0) {
+                stopCountdown();
+                const redirectUrl = redirectPopup.getAttribute('data-redirect-url');
+                if (redirectUrl && redirectUrl !== 'YOUR_REFERRAL_URL_HERE') {
+                    window.location.href = redirectUrl;
+                }
+            }
+        }, 1000);
+    }
+
+    window.openRedirectPopup = function(url) {
+        if (url) {
+            redirectPopup.setAttribute('data-redirect-url', url);
+        }
+
+        if (progressBarInner) {
+            progressBarInner.style.animation = 'none';
+            void progressBarInner.offsetWidth;
+            progressBarInner.style.animation = '';
+        }
+
+        redirectPopup.classList.add('open');
+        startCountdown();
+    };
+});
+</script>
 <!-- Подключаем вынесённый JS -->
  <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
 <script src="js/sports.js" defer=""></script>

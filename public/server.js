@@ -53,7 +53,10 @@ async function getSports() {
 
   const response = await axios.get(
     `https://cpservm.com/gateway/marketing/datafeed/directories/api/v2/sports?ref=${REF}`,
-    { headers:{ Authorization:`Bearer ${token}` } }
+    {
+      headers:{ Authorization:`Bearer ${token}` },
+      timeout: 12000,
+    }
   )
 
   sportsCache = response.data.items || []
@@ -428,17 +431,14 @@ app.get("/popular/all", (req, res) => {
 
 app.get("/api/sports", async (req,res)=>{
   try{
-    const token = await getToken()
-
-    const response = await axios.get(
-      `https://cpservm.com/gateway/marketing/datafeed/directories/api/v2/sports?ref=${REF}`,
-      { headers:{ Authorization:`Bearer ${token}` } }
-    )
-
-    res.json(response.data)
+    const items = await getSports()
+    res.json({ items })
 
   }catch(e){
     console.log("SPORTS ERROR:", e.response?.data || e.message)
+    if (Array.isArray(sportsCache) && sportsCache.length) {
+      return res.json({ items: sportsCache })
+    }
     res.status(500).json({ error:"sports error" })
   }
 })
@@ -452,7 +452,8 @@ app.get("/api/events", async(req,res)=>{
     const params = {
       ref: REF,
       sportIds: sportId,
-      lng: "en"
+      lng: "en",
+      partnerLink: 'refpa58144.com/L?tag=d_4980367m_1599c_',
     }
     if (gtStart) params.gtStart = Number(gtStart)
     if (ltStart) params.ltStart = Number(ltStart)

@@ -109,7 +109,8 @@ function setCachedData(key, data) {
 }
 
 // Универсальная функция для запросов с кешированием
-async function fetchNewsWithCache(url, cacheKey) {
+async function fetchNewsWithCache(url, cacheKey, options = {}) {
+  const { quiet = false } = options;
   // Пытаемся получить данные из кеша
   const cachedData = getCachedData(cacheKey);
   if (cachedData) {
@@ -131,7 +132,9 @@ async function fetchNewsWithCache(url, cacheKey) {
     
     return data;
   } catch (error) {
-    console.error(`Error fetching news for ${cacheKey}:`, error);
+    if (!quiet) {
+      console.error(`Error fetching news for ${cacheKey}:`, error);
+    }
     throw error;
   }
 }
@@ -230,7 +233,7 @@ function renderArticles(articles) {
 async function loadAllNews() {
   if (!newsContainer) return;
   const lang = getCurrentLang();
-  newsContainer.innerHTML = '<p>Загрузка всех новостей...</p>';
+  newsContainer.innerHTML = '<p>Loading all news...</p>';
   
   // Пытаемся получить все новости из кеша
   const allCacheKey = `news_all_${lang}`;
@@ -244,20 +247,21 @@ async function loadAllNews() {
   try {
     // Загружаем новости по всем спортивным темам
     const sportTopics = ['Football', 'Cricket', 'eSports', 'Basketball', 'Volleyball', 'Tennis', 'MMA', 'Highlights', 'Trending'];
-    const allPromises = sportTopics.map(topic => 
-      fetchNewsWithCache(
-        `/news?q=${encodeURIComponent(topic)}&lang=${encodeURIComponent(lang)}`,
-        `news_${lang}_${topic.toLowerCase().replace(/\s+/g, '_')}`
-      )
-        .then(data => data.articles || [])
-        .catch(err => {
-          console.error(`Error loading news for ${topic}:`, err);
-          return []; // Возвращаем пустой массив в случае ошибки
-        })
-    );
-
-    // Ждем завершения всех запросов
-    const allResults = await Promise.all(allPromises);
+    // На проде параллельный штурм 9 запросами часто ловит rate-limit/504.
+    // Идем последовательно, чтобы снизить нагрузку и повысить стабильность.
+    const allResults = [];
+    for (const topic of sportTopics) {
+      try {
+        const data = await fetchNewsWithCache(
+          `/news?q=${encodeURIComponent(topic)}&lang=${encodeURIComponent(lang)}`,
+          `news_${lang}_${topic.toLowerCase().replace(/\s+/g, '_')}`,
+          { quiet: true }
+        );
+        allResults.push(data.articles || []);
+      } catch (err) {
+        allResults.push([]);
+      }
+    }
     
     // Объединяем все новости в один массив
     let allArticles = allResults.flat();
@@ -284,7 +288,7 @@ async function loadAllNews() {
     
   } catch (err) {
     console.error('Error loading all news:', err);
-    newsContainer.innerHTML = '<p>Ошибка при загрузке новостей</p>';
+    newsContainer.innerHTML = '<p>Error loading news</p>';
   }
 }
 
@@ -295,7 +299,7 @@ async function loadNews(q = 'All') {
     return;
   }
   const lang = getCurrentLang();
-  newsContainer.innerHTML = '<p>Загрузка новостей...</p>';
+  newsContainer.innerHTML = '<p>Loading news...</p>';
   try {
     const cacheKey = `news_${lang}_${q.toLowerCase().replace(/\s+/g, '_')}`;
     const data = await fetchNewsWithCache(
@@ -316,7 +320,7 @@ async function loadNews(q = 'All') {
     renderArticles(articles);
   } catch (err) {
     console.error('Error loading news:', err);
-    newsContainer.innerHTML = '<p>Ошибка при получении новостей</p>';
+    newsContainer.innerHTML = '<p>Error</p>';
   }
 }
 

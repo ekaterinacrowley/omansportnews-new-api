@@ -33,6 +33,8 @@ const REQUEST_TIMEOUTS = {
   HEAVY: 30000
 };
 
+const AFFILIATE_LINK = 'https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599';
+
 // Функция для получения URL логотипа команды
 function getTeamLogo(imageData) {
   if (!imageData) return '';
@@ -62,6 +64,19 @@ function parseScorePair(item) {
   let opponent1Score = item.opponent1Score ?? item.homeScore ?? null;
   let opponent2Score = item.opponent2Score ?? item.awayScore ?? null;
 
+  if (opponent1Score == null && item.fullScore && typeof item.fullScore === 'object') {
+    opponent1Score = item.fullScore.sc1 ?? null;
+  }
+  if (opponent2Score == null && item.fullScore && typeof item.fullScore === 'object') {
+    opponent2Score = item.fullScore.sc2 ?? null;
+  }
+  if (opponent1Score == null && item.curScore && typeof item.curScore === 'object') {
+    opponent1Score = item.curScore.sc1 ?? null;
+  }
+  if (opponent2Score == null && item.curScore && typeof item.curScore === 'object') {
+    opponent2Score = item.curScore.sc2 ?? null;
+  }
+
   if (opponent1Score == null && opponent2Score == null && score && typeof score === 'string') {
     const parts = score.split(' ')[0].split(':');
     if (parts.length === 2) {
@@ -77,6 +92,34 @@ function parseScorePair(item) {
   return { opponent1Score, opponent2Score };
 }
 
+function isLiveMatch(item) {
+  const status = String(item?.status || '').toLowerCase();
+  if (status === 'live' || status === 'in_progress') return true;
+
+  const gameStatus = Number(item?.gameStatus);
+  if (Number.isFinite(gameStatus)) {
+    return gameStatus !== 1 && gameStatus !== 4 && gameStatus !== 32;
+  }
+
+  return false;
+}
+
+function formatLiveClock(seconds) {
+  const sec = Number(seconds);
+  if (!Number.isFinite(sec) || sec < 0) return 'LIVE';
+
+  const mins = Math.floor(sec / 60);
+  const remSec = sec % 60;
+  return `${String(mins).padStart(2, '0')}:${String(remSec).padStart(2, '0')}`;
+}
+
+function buildLiveTimeContent(item) {
+  const { opponent1Score, opponent2Score } = parseScorePair(item);
+  const liveClock = formatLiveClock(item?.timeSec);
+  const scoreLine = `${opponent1Score ?? 0} - ${opponent2Score ?? 0}`;
+  return `<strong>${liveClock} | ${scoreLine}</strong><span class="watch">Watch</span>`;
+}
+
 let sportsCache = null;
 const sportIdCache = {}; 
 
@@ -86,6 +129,7 @@ const SPORT_ID_OVERRIDES = {
   basketball: 3,
   volleyball: 6,
   cricket: 66,
+  esports: 40,
 };
 
 function normalizeSportName(value) {
@@ -96,7 +140,12 @@ async function getSports() {
   if (sportsCache) return sportsCache;
   
   try {
-    const data = await fetchWithCache('/api/sports', CACHE_KEYS.SPORTS, { timeout: 5000 });
+    const data = await fetchWithCache('/api/sports', CACHE_KEYS.SPORTS, {
+      timeout: REQUEST_TIMEOUTS.PICKER,
+      retries: 1,
+      retryDelay: 600,
+      quiet: true
+    });
     sportsCache = data.items || [];
     return sportsCache;
   } catch (error) {
@@ -642,10 +691,10 @@ function renderFootball(matches, options = {}) {
     events.forEach(event => {
       const startTime = event.startDate || Date.now() / 1000;
       const matchDate = new Date(startTime * 1000);
-      const isLive = event.status === 'in_progress' || event.status === 'live';
+      const isLive = isLiveMatch(event);
       let displayTime;
       if (isLive) {
-        displayTime = `<span class="live">LIVE</span><strong>${event.opponent1Score ?? 0} - ${event.opponent2Score ?? 0}</strong><span class="watch">Watch</span>`;
+        displayTime = buildLiveTimeContent(event);
       } else if (event.status === 'finished') {
         displayTime = `<strong>${event.opponent1Score ?? 0} - ${event.opponent2Score ?? 0}</strong><span class="hightlights">Hightlights</span>`;
       } else {
@@ -667,7 +716,7 @@ function renderFootball(matches, options = {}) {
       const homeImg = getTeamLogo(event.imageOpponent1);
       const awayImg = getTeamLogo(event.imageOpponent2);
       
-      matchEl.innerHTML = `<div class="team"><div class="team__logo">${homeImg ? `<img src="${homeImg}" alt="${homeTeamName}" onerror="this.style.display='none'">` : ''}</div><span>${homeTeamName}</span></div><a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="time">${displayTime}</a><div class="team team--2"><span>${awayTeamName}</span><div class="team__logo">${awayImg ? `<img src="${awayImg}" alt="${awayTeamName}" onerror="this.style.display='none'">` : ''}</div></div>`;
+      matchEl.innerHTML = `<div class="team"><div class="team__logo">${homeImg ? `<img src="${homeImg}" alt="${homeTeamName}" onerror="this.style.display='none'">` : ''}</div><span>${homeTeamName}</span></div><a href="${event.link || AFFILIATE_LINK}" target="_blank" class="time">${displayTime}</a><div class="team team--2"><span>${awayTeamName}</span><div class="team__logo">${awayImg ? `<img src="${awayImg}" alt="${awayTeamName}" onerror="this.style.display='none'">` : ''}</div></div>`;
       leagueEl.appendChild(matchEl);
     });
     footballContainer.appendChild(leagueEl);
@@ -922,8 +971,8 @@ async function createTomorrowSwiperSlides() {
               </div> 
             </div>
             <div class="slide__controls">
-              <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="slide__btn slide__btn--1">${tSlider('slider.watchPlay', lang)}</a>
-              <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="slide__btn slide__btn--2">${tSlider('slider.remind', lang)}</a>
+              <a href="${match.link || AFFILIATE_LINK}" target="_blank" class="slide__btn slide__btn--1">${tSlider('slider.watchPlay', lang)}</a>
+              <a href="${match.link || AFFILIATE_LINK}" target="_blank" class="slide__btn slide__btn--2">${tSlider('slider.remind', lang)}</a>
             </div>
           </div>
         </div>
@@ -1243,8 +1292,17 @@ function renderCricket(matches, selectedDate, options = {}) {
         const awayImg = getTeamLogo(match.imageOpponent2);
 
         let timeContent;
-        if (match.status === 'finished' && (match.opponent1Score != null || match.opponent2Score != null)) {
-          timeContent = `<strong>${match.opponent1Score ?? 0} - ${match.opponent2Score ?? 0}</strong><span class="hightlights">Highlights</span>`;
+        if (isLiveMatch(match)) {
+          timeContent = buildLiveTimeContent(match);
+        } else if (match.status === 'finished') {
+          const rawScore = match.score || match.scoreLine || null;
+          if (match.opponent1Score != null || match.opponent2Score != null) {
+            timeContent = `<strong>${match.opponent1Score ?? 0} - ${match.opponent2Score ?? 0}</strong><span class="hightlights">Highlights</span>`;
+          } else if (rawScore) {
+            timeContent = `<strong>${rawScore}</strong><span class="hightlights">Highlights</span>`;
+          } else {
+            timeContent = `<strong>${displayDate}</strong><span class="hightlights">Highlights</span>`;
+          }
         } else {
           timeContent = `<strong>${displayDate}</strong><span class="watch">Watch</span>`;
         }
@@ -1255,7 +1313,7 @@ function renderCricket(matches, selectedDate, options = {}) {
               <div class="team__logo">${homeImg ? `<img src="${homeImg}" alt="${homeTeamName}" onerror="this.style.display='none'">` : ''}</div>
               <span>${homeTeamName}</span>
             </div>
-            <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="time">${timeContent}</a>
+            <a href="${match.link || AFFILIATE_LINK}" target="_blank" class="time">${timeContent}</a>
             <div class="team team--2">
               <span>${awayTeamName}</span>
               <div class="team__logo"><img src="${awayImg}" alt="${awayTeamName}"></div>
@@ -1406,7 +1464,9 @@ async function loadBasketballMatches(dateStr) {
 
         // Show score for finished matches
         let timeContent;
-        if (match.status === 'finished' && (match.opponent1Score != null || match.opponent2Score != null)) {
+        if (isLiveMatch(match)) {
+          timeContent = buildLiveTimeContent(match);
+        } else if (match.status === 'finished' && (match.opponent1Score != null || match.opponent2Score != null)) {
           timeContent = `<strong>${match.opponent1Score ?? 0} - ${match.opponent2Score ?? 0}</strong><span class="hightlights">Highlights</span>`;
         } else {
           timeContent = `${displayTime}<span class="watch">Watch</span>`;
@@ -1417,7 +1477,7 @@ async function loadBasketballMatches(dateStr) {
             <div class="team__logo">${homeImg ? `<img src="${homeImg}" alt="${homeTeamName}" onerror="this.style.display='none'">` : ''}</div>
             <span>${homeTeamName}</span>
           </div>
-          <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="time">${timeContent}</a>
+          <a href="${match.link || AFFILIATE_LINK}" target="_blank" class="time">${timeContent}</a>
           <div class="team team--2">
             <span>${awayTeamName}</span>
             <div class="team__logo">${awayImg ? `<img src="${awayImg}" alt="${awayTeamName}" onerror="this.style.display='none'">` : ''}</div>
@@ -1567,7 +1627,9 @@ async function loadVolleyballMatches(dateStr) {
 
         // Show score for finished matches
         let timeContent;
-        if (match.status === 'finished' && (match.opponent1Score != null || match.opponent2Score != null)) {
+        if (isLiveMatch(match)) {
+          timeContent = buildLiveTimeContent(match);
+        } else if (match.status === 'finished' && (match.opponent1Score != null || match.opponent2Score != null)) {
           timeContent = `<strong>${match.opponent1Score ?? 0} - ${match.opponent2Score ?? 0}</strong><span class="hightlights">Highlights</span>`;
         } else {
           timeContent = `${displayTime}<span class="watch">Watch</span>`;
@@ -1578,7 +1640,7 @@ async function loadVolleyballMatches(dateStr) {
             <div class="team__logo">${homeImg ? `<img src="${homeImg}" alt="${homeTeamName}" onerror="this.style.display='none'">` : ''}</div>
             <span>${homeTeamName}</span>
           </div>
-          <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="time">${timeContent}</a>
+          <a href="${match.link || AFFILIATE_LINK}" target="_blank" class="time">${timeContent}</a>
           <div class="team team--2">
             <span>${awayTeamName}</span>
             <div class="team__logo">${awayImg ? `<img src="${awayImg}" alt="${awayTeamName}" onerror="this.style.display='none'">` : ''}</div>
@@ -1706,7 +1768,9 @@ async function loadEsportsMatches(dateStr) {
         const awayImg = getTeamLogo(match.imageOpponent2);
 
         let timeContent;
-        if (match.status === 'finished' && (match.opponent1Score != null || match.opponent2Score != null)) {
+        if (isLiveMatch(match)) {
+          timeContent = buildLiveTimeContent(match);
+        } else if (match.status === 'finished' && (match.opponent1Score != null || match.opponent2Score != null)) {
           timeContent = `<strong>${match.opponent1Score ?? 0} - ${match.opponent2Score ?? 0}</strong><span class="hightlights">Highlights</span>`;
         } else {
           timeContent = `${displayTime}<span class="watch">Watch</span>`;
@@ -1717,7 +1781,7 @@ async function loadEsportsMatches(dateStr) {
             <div class="team__logo">${homeImg ? `<img src="${homeImg}" alt="${homeTeamName}" onerror="this.style.display='none'">` : ''}</div>
             <span>${homeTeamName}</span>
           </div>
-          <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank" class="time">${timeContent}</a>
+          <a href="${match.link || AFFILIATE_LINK}" target="_blank" class="time">${timeContent}</a>
           <div class="team team--2">
             <span>${awayTeamName}</span>
             <div class="team__logo">${awayImg ? `<img src="${awayImg}" alt="${awayTeamName}" onerror="this.style.display='none'">` : ''}</div>
@@ -1790,11 +1854,19 @@ function renderTeamLogos(filter) {
       item.className = 'teams__item';
       item.dataset.sport = sport;
       item.innerHTML = `
-        <a href="https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599" target="_blank">
-          <img src="${team.logo}" alt="${team.name}" title="${team.name}"
-               onerror="this.src='/images/default-team.png'">
-        </a>
+        <img src="${team.logo}" alt="${team.name}" title="${team.name}"
+             onerror="this.src='/images/default-team.png'">
       `;
+
+      item.addEventListener('click', () => {
+        const redirectUrl = team.link || AFFILIATE_LINK;
+        if (typeof window.openRedirectPopup === 'function') {
+          window.openRedirectPopup(redirectUrl);
+          return;
+        }
+        window.location.href = redirectUrl;
+      });
+
       container.appendChild(item);
     });
   });
@@ -1815,7 +1887,7 @@ function collectTeamsFromMatches(sportKey, items) {
     pairs.forEach(({ name, img }) => {
       if (!name || seen.has(name)) return;
       seen.add(name);
-      teams.push({ name, logo: getTeamLogo(img) });
+      teams.push({ name, logo: getTeamLogo(img), link: item.link || AFFILIATE_LINK });
     });
   });
   _teamsBySport[sportKey] = teams;

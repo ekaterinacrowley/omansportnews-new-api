@@ -386,7 +386,11 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('[data-i18n]').forEach(el => {
             const key = el.getAttribute('data-i18n');
             const text = (translations[lang] && translations[lang][key]) || null;
-            if (text !== null) el.textContent = text;
+            if (text !== null) {
+                const isHtml = el.hasAttribute('data-i18n-html');
+                if (isHtml) el.innerHTML = text;
+                else el.textContent = text;
+            }
         });
 
         // Применяем значения placeholder для input с data-i18n-placeholder

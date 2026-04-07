@@ -448,4 +448,50 @@
         display: block;
         z-index: 98;
     }
+
+    .redirect-popup {
+        &__content {
+            width: auto;
+            padding: 24px;
+            gap: 27px;
+        }
+
+        &__title {
+            font-size: 20px;
+        }
+
+        &__subtitle {
+            font-size: 16px;
+        }
+
+        &__banner {
+            padding: 20px;
+            justify-content: flex-start;
+            align-items: center;
+            height: auto;
+            gap: 8px;
+
+            &:after {
+                background: url(images/redirect-bg-mob.webp) right bottom no-repeat;
+                background-size: cover;
+                top: 20px;
+                left: 0;
+            }
+        }
+
+        &__banner-title {
+            font-size: 23px;
+            text-align: center;
+        }
+
+         &__image {
+            position: relative;
+            width: auto;
+            height: auto;
+            max-width: 100%;
+            margin-top: 20px;
+            margin-bottom: -70px;
+         }
+    }
+
 }
