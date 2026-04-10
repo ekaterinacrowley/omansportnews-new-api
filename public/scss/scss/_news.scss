@@ -84,9 +84,13 @@
         border: 1px solid var(--vulcan-4, rgba(9, 10, 18, 0.05));
         background: var(--white-100, #FFF);
         position: relative;
+        transition: all .3s ease;
+
+         &:hover {
+            border: 1px solid var(--main-100, #008AFF);
+        }
 
         &--custom {
-            border: 1px solid #008AFF;
 
             &:after {
                 content: 'News for You';
@@ -107,6 +111,10 @@
                 font-weight: 500;
 
             }
+        }
+
+        &:hover {
+            border: 1px solid #008AFF;
         }
     }
 

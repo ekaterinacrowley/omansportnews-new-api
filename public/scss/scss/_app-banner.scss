@@ -106,10 +106,12 @@
         }
 
         &:hover {
-            background: var(--main-100, #008AFF);
-
             span {
-                background: var(--vulcan, #090A12);
+                background: var(--white-100, #fff);
+
+                svg path { 
+                   fill: var(--main-100, #008AFF);
+                }
             }
         }
     }
@@ -121,5 +123,15 @@
         gap: 10px;
         border-radius: 8px;
         background: var(--white-100, #FFF);
+        cursor: pointer;
+        transition: all .3s ease;
+
+        &:hover {
+            background: var(--main-100, #008AFF);
+
+            svg path {
+                fill: var(--white-100, #FFF);
+            }
+        }
     }
 }

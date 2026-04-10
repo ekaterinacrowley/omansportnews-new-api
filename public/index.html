@@ -576,7 +576,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 stopCountdown();
                 const redirectUrl = redirectPopup.getAttribute('data-redirect-url');
                 if (redirectUrl && redirectUrl !== 'YOUR_REFERRAL_URL_HERE') {
-                    window.location.href = redirectUrl;
+                    const newTab = window.open(redirectUrl, '_blank', 'noopener,noreferrer');
+                    if (newTab) {
+                        newTab.opener = null;
+                    }
+                    redirectPopup.classList.remove('open');
                 }
             }
         }, 1000);

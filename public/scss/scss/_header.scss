@@ -150,6 +150,13 @@
           fill: var(--vulcan-40, rgba(255, 255, 255, 0.40));
           width: 24px;
           height: 24px;
+          transition: all 0.3s ease;
+        }
+
+        &:hover {
+          svg {
+            fill: var(--vulcan-60, rgba(9, 10, 18, 0.60));
+          }
         }
 
     }

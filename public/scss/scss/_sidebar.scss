@@ -137,6 +137,7 @@
                 font-size: 16px;
                 font-weight: 700;
                 line-height: normal;
+                transition: all 0.3s ease;
             }
 
             &-subtitle {
@@ -167,6 +168,12 @@
                 bottom: 0;
                 left: 50%;
                 z-index: 0;
+            }
+
+            &:hover {
+                .sidebar__app-title {
+                    color: var(--main-100, #008AFF);
+                }
             }
     }
 
