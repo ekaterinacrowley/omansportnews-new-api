@@ -1835,8 +1835,9 @@ async function debugSportIds() {
 // ---------------------------------------------------------------------------
 
 // In-memory store for team cards split by sport
-const _teamsBySport = { football: [], cricket: [], basketball: [], volleyball: [] };
-let _activeTeamSport = 'all';
+const _teamsBySport = { football: [], cricket: [], basketball: [], esports: [], volleyball: [] };
+const _teamsLoadedSports = new Set();
+let _activeTeamSport = 'football';
 
 function renderTeamLogos(filter) {
   const container = document.getElementById('teamsLogos');
@@ -1900,54 +1901,67 @@ async function loadTeamsLogos() {
   const gtStart = Math.floor(dayStart.getTime() / 1000);
   const ltStart = gtStart + 24 * 3600;
 
-  const sportKeys = ['football', 'cricket', 'basketball', 'esports', 'volleyball'];
+  async function loadTeamsLogosForSport(sport) {
+    if (!sport || _teamsLoadedSports.has(sport)) {
+      renderTeamLogos(_activeTeamSport);
+      return;
+    }
 
-  await Promise.allSettled(sportKeys.map(async sport => {
     try {
       const sportId = await getSportId(sport);
-      if (!sportId) return;
+      if (!sportId) {
+        _teamsBySport[sport] = [];
+        _teamsLoadedSports.add(sport);
+        renderTeamLogos(_activeTeamSport);
+        return;
+      }
+
       const data = await fetchWithCache(
         `/api/events?sportId=${sportId}&gtStart=${gtStart}&ltStart=${ltStart}&lng=en`,
         `teams_today_${sport}_${todayStr}`,
         { timeout: REQUEST_TIMEOUTS.NORMAL, retries: 1 }
       );
+
       if (data && Array.isArray(data.items)) {
         collectTeamsFromMatches(sport, data.items);
+      } else {
+        _teamsBySport[sport] = [];
       }
     } catch (e) {
       console.warn(`Teams: failed to load ${sport}`, e);
+      _teamsBySport[sport] = [];
+    } finally {
+      _teamsLoadedSports.add(sport);
+      renderTeamLogos(_activeTeamSport);
     }
-  }));
+  }
 
-  renderTeamLogos(_activeTeamSport);
+  await loadTeamsLogosForSport(_activeTeamSport);
 
   // Wire up topic filter buttons
   const topicsContainer = document.getElementById('teamsTopics');
   if (topicsContainer) {
     topicsContainer.addEventListener('click', e => {
-      const btn = e.target.closest('[data-i18n]');
+      const btn = e.target.closest('[data-sport]');
       if (!btn) return;
 
-      // Map i18n key to sport key
-      const keyMap = {
-        'teams.topic.football': 'football',
-        'teams.topic.cricket': 'cricket',
-        'teams.topic.basketball': 'basketball',
-        'teams.topic.volleyball': 'volleyball',
-        'teams.topic.esports': 'all',
-        'teams.topic.tennis': 'all',
-        'teams.topic.mma': 'all',
-      };
-      const i18nKey = btn.getAttribute('data-i18n') || '';
-      _activeTeamSport = keyMap[i18nKey] || 'all';
+      const sport = btn.getAttribute('data-sport') || 'football';
+      _activeTeamSport = sport;
 
       // Update active class
-      topicsContainer.querySelectorAll('[data-i18n]').forEach(b => {
+      topicsContainer.querySelectorAll('[data-sport]').forEach(b => {
         b.classList.remove('news__topic--selected', 'teams__topic--selected');
       });
       btn.classList.add('news__topic--selected');
 
-      renderTeamLogos(_activeTeamSport);
+      if (_teamsLoadedSports.has(_activeTeamSport)) {
+        renderTeamLogos(_activeTeamSport);
+        return;
+      }
+
+      loadTeamsLogosForSport(_activeTeamSport).catch(err => {
+        console.warn(`Teams: failed to load ${_activeTeamSport}`, err);
+      });
     });
   }
 }
