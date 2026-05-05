@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "sync:custom-news": "node scripts/sync-custom-news-from-sheet.js",
+    "generate:sitemap": "node scripts/generate-sitemap.js",
     "watch:scss": "sass --watch src/scss/main.scss:public/styles.css --style=expanded",
     "watch:js": "esbuild --bundle src/js/main.js --outfile=public/main.js --watch",
     "watch:html": "node watch-html.js",
@@ -13,7 +15,8 @@
     "copy:images": "mkdir -p public/images && cp -r src/images/* public/images/",
     "copy:components": "cp -r src/components public/components",
     "copy:js": "mkdir -p public/js && cp -r src/js/* public/js/",
-    "build": "node scripts/inject-env-html.cjs && esbuild src/js/main.js --bundle --outfile=public/main.js && npx posthtml src/index.html -o public/index.html -c posthtml.config.cjs && cp -r src/scss public/scss && npm run copy:images && npm run copy:components && npm run copy:js",
+    "copy:seo": "cp src/robots.txt public/robots.txt && cp src/llms.txt public/llms.txt",
+    "build": "node scripts/inject-env-html.cjs && npm run generate:sitemap && esbuild src/js/main.js --bundle --outfile=public/main.js && npx posthtml src/index.html -o public/index.html -c posthtml.config.cjs && npx posthtml src/news.html -o public/news.html -c posthtml.config.cjs && cp -r src/scss public/scss && npm run copy:images && npm run copy:components && npm run copy:js && npm run copy:seo",
     "dev": "npm run build && npm-run-all --parallel watch:scss watch:js watch:js-files watch:images watch:html-build start copy:images copy:components copy:js",
     "start": "node server.js --open",
     "proxy": "node watch-html.js"

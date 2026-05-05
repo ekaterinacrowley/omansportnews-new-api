@@ -1,0 +1,19 @@
+# Omansportsnews
+
+> Sports portal focused on live football updates, match center data, highlights, and sports news.
+
+## Site
+- Base URL: https://omansportsnews.com/
+- News page: https://omansportsnews.com/news.html
+- Primary language: en
+
+## Content Summary
+- Live match updates and schedules
+- Sports headlines and breaking news
+- Team and league highlights
+- Multi-language UI and regional sports context
+
+## Crawl Guidance
+- Public pages may be indexed.
+- Prefer canonical URLs from page metadata.
+- Use sitemap for URL discovery: https://omansportsnews.com/sitemap.xml

@@ -801,6 +801,48 @@ app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// Синхронизация кастомных новостей из Google Sheets
+const CUSTOM_NEWS_SYNC_INTERVAL = 7 * 24 * 60 * 60 * 1000; // раз в неделю
+
+async function syncCustomNews() {
+  const { readFile } = await import('node:fs/promises');
+  const customNewsPath = new URL('./public/i18n/custom-news.json', import.meta.url).pathname;
+
+  let prevContent = '';
+  try {
+    prevContent = await readFile(customNewsPath, 'utf8');
+  } catch {
+    // файл может не существовать
+  }
+
+  await new Promise((resolve, reject) => {
+    exec('node scripts/sync-custom-news-from-sheet.js', (err, stdout, stderr) => {
+      if (err) {
+        console.error('[custom-news] Ошибка синхронизации:', stderr || err.message);
+        return reject(err);
+      }
+      resolve();
+    });
+  });
+
+  let newContent = '';
+  try {
+    newContent = await readFile(customNewsPath, 'utf8');
+  } catch {
+    // ignore
+  }
+
+  if (newContent && newContent !== prevContent) {
+    console.log('[custom-news] Новости обновлены из Google Sheets.');
+  } else {
+    console.log('[custom-news] Новости не изменились, обновление не требуется.');
+  }
+}
+
+// Запуск при старте и раз в неделю
+syncCustomNews().catch(() => {});
+setInterval(() => syncCustomNews().catch(() => {}), CUSTOM_NEWS_SYNC_INTERVAL);
+
 // Первый и единственный запуск сервера (оставить этот)
 app.listen(PORT, () => {
   console.log(`✅ Сервер запущен на http://localhost:${PORT}`);

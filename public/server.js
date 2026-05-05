@@ -645,6 +645,111 @@ app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// --- Синхронизация кастомных новостей из Google Sheets ---
+const CUSTOM_NEWS_SHEET_ID = process.env.CUSTOM_NEWS_SHEET_ID || '1TIrKdVNGt5NDs6gkR9nJgcUiIkDrW8uTG8UUXwSd4LE';
+const CUSTOM_NEWS_SHEET_GID = process.env.CUSTOM_NEWS_SHEET_GID || '0';
+const CUSTOM_NEWS_COUNTRY = (process.env.CUSTOM_NEWS_COUNTRY || 'Oman').toLowerCase();
+const CUSTOM_NEWS_MAX_ITEMS = Number(process.env.CUSTOM_NEWS_MAX_ITEMS || 8);
+const CUSTOM_NEWS_DEFAULT_IMAGE_URL = process.env.CUSTOM_NEWS_DEFAULT_IMAGE_URL || '/images/news-image.webp';
+const CUSTOM_NEWS_LANG_COLUMN_INDEX = Math.max(0, Number(process.env.CUSTOM_NEWS_LANG_COLUMN || 6) - 1);
+const CUSTOM_NEWS_TARGET_LANGS = (process.env.CUSTOM_NEWS_LANGS || 'en,sa,india,pakistan,bangladesh')
+  .split(',').map(x => x.trim()).filter(Boolean);
+const CUSTOM_NEWS_EXPORT_URL = `https://docs.google.com/spreadsheets/d/${CUSTOM_NEWS_SHEET_ID}/export?format=csv&gid=${CUSTOM_NEWS_SHEET_GID}`;
+const CUSTOM_NEWS_SYNC_INTERVAL = 7 * 24 * 60 * 60 * 1000;
+
+function parseCustomNewsCsv(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i], next = text[i + 1];
+    if (inQuotes) {
+      if (ch === '"' && next === '"') { field += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else { field += ch; }
+      continue;
+    }
+    if (ch === '"') { inQuotes = true; }
+    else if (ch === ',') { row.push(field); field = ''; }
+    else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+    else if (ch !== '\r') { field += ch; }
+  }
+  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+function normalizeCustomNewsLang(value) {
+  const v = String(value || '').trim().toLowerCase();
+  if (!v) return '';
+  if (v === 'en' || v === 'english') return 'en';
+  if (v === 'sa' || v === 'arabic' || v === 'ar' || v === 'saudi') return 'sa';
+  if (v === 'india' || v === 'hindi' || v === 'hi' || v === 'in') return 'india';
+  if (v === 'pakistan' || v === 'urdu' || v === 'ur' || v === 'pk') return 'pakistan';
+  if (v === 'bangladesh' || v === 'bangla' || v === 'bn' || v === 'bd') return 'bangladesh';
+  return '';
+}
+
+async function syncCustomNews() {
+  try {
+    const res = await fetch(CUSTOM_NEWS_EXPORT_URL, { headers: { 'Cache-Control': 'no-cache' } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const csvText = await res.text();
+    const rows = parseCustomNewsCsv(csvText);
+    if (!rows.length) throw new Error('Empty CSV');
+
+    let startIndex = 0;
+    if (String(rows[0]?.[0] || '').trim().toLowerCase() === 'headline' ||
+        String(rows[0]?.[0] || '').trim().toLowerCase() === 'title') startIndex = 1;
+
+    const commonItems = [];
+    const byLang = {};
+    for (const lang of CUSTOM_NEWS_TARGET_LANGS) byLang[lang] = [];
+
+    for (let i = startIndex; i < rows.length; i++) {
+      const r = rows[i] || [];
+      const title = String(r[0] || '').trim();
+      const description = String(r[1] || '').trim();
+      const imageUrl = String(r[2] || '').trim();
+      const country = String(r[3] || '').trim().toLowerCase();
+      const langRaw = String(r[CUSTOM_NEWS_LANG_COLUMN_INDEX] || '').trim();
+      if (!title || !description || country !== CUSTOM_NEWS_COUNTRY) continue;
+      const item = { title, description, imageUrl: imageUrl || CUSTOM_NEWS_DEFAULT_IMAGE_URL };
+      const lang = normalizeCustomNewsLang(langRaw);
+      if (!lang) { commonItems.push(item); continue; }
+      if (!byLang[lang]) byLang[lang] = [];
+      byLang[lang].push(item);
+    }
+
+    const output = {};
+    const enFallback = byLang.en?.length ? byLang.en : commonItems;
+    for (const lang of CUSTOM_NEWS_TARGET_LANGS) {
+      const langItems = byLang[lang]?.length ? byLang[lang] : commonItems;
+      output[lang] = (langItems.length ? langItems : enFallback).slice(0, CUSTOM_NEWS_MAX_ITEMS);
+    }
+
+    const total = Object.values(output).reduce((acc, arr) => acc + arr.length, 0);
+    if (total === 0) throw new Error(`No rows for country '${CUSTOM_NEWS_COUNTRY}'`);
+
+    const { readFile, writeFile } = await import('node:fs/promises');
+    const jsonPath = new URL('./i18n/custom-news.json', import.meta.url).pathname;
+    const json = `${JSON.stringify(output, null, 2)}\n`;
+
+    let prev = '';
+    try { prev = await readFile(jsonPath, 'utf8'); } catch {}
+    await writeFile(jsonPath, json, 'utf8');
+
+    if (json !== prev) {
+      console.log('[custom-news] Новости обновлены из Google Sheets.');
+    } else {
+      console.log('[custom-news] Новости не изменились.');
+    }
+  } catch (err) {
+    console.error('[custom-news] Ошибка синхронизации:', err.message || err);
+  }
+}
+
+syncCustomNews();
+setInterval(syncCustomNews, CUSTOM_NEWS_SYNC_INTERVAL);
+
 // Первый и единственный запуск сервера (оставить этот)
 app.listen(PORT, () => {
   console.log(`✅ Сервер запущен на http://localhost:${PORT}`);

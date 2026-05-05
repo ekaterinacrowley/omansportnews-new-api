@@ -283,6 +283,12 @@
         if (text !== null && "placeholder" in el)
           el.placeholder = text;
       });
+      document.querySelectorAll("[data-i18n-content]").forEach((el) => {
+        const key = el.getAttribute("data-i18n-content");
+        const text = translations[lang] && translations[lang][key] || null;
+        if (text !== null)
+          el.setAttribute("content", text);
+      });
       try {
         const rtlLangs = /* @__PURE__ */ new Set(["sa", "pakistan"]);
         const dir = rtlLangs.has(lang) ? "rtl" : "ltr";

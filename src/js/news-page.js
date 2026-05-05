@@ -1,4 +1,4 @@
-// Загружает и отображает новости по выбранной теме.
+// Загружает и отображает новости по выбранной теме для страницы /news.
 // Вызов: клик по теме -> fetch /news?q=ТЕМА
 
 // topics будет загружаться из `src/i18n/translations.json` на основе текущего языка
@@ -6,7 +6,9 @@ let topics = [];
 let currentActiveLang = null;
 
 function getCurrentLang() {
-  return document.body.getAttribute('data-lang') || localStorage.getItem('siteLang') || 'en';
+  const lang = document.body.getAttribute('data-lang') || localStorage.getItem('siteLang') || 'en';
+  console.log('getCurrentLang returned:', lang);
+  return lang;
 }
 
 async function loadTopicsFromTranslations() {
@@ -46,8 +48,8 @@ async function loadTopicsFromTranslations() {
 const topicsContainer = document.getElementById('newsTopics');
 const newsContainer = document.getElementById('newsContainer');
 
-// Константа для ограничения количества новостей
-const MAX_NEWS_ITEMS = 8;
+// Для страницы новостей снимаем ограничение на количество
+const MAX_NEWS_ITEMS = Infinity; // Без ограничения
 
 // Константы для кеширования
 const CACHE_DURATION_NEWS = 24 * 60 * 60 * 1000; // 24 часа в миллисекундах
@@ -64,81 +66,156 @@ const CACHE_KEYS_NEWS = {
   NEWS_TRENDING: 'news_trending'
 };
 
-// Единая ссылка и таргет для всех кастомных новостей
-const CUSTOM_NEWS_URL = 'https://reffpa.com/L?tag=d_5453931m_1599c_&site=5453931&ad=1599';
+// Уникальная ссылка и target для всех кастомных новостей
+const CUSTOM_NEWS_LINK = 'https://reffpa.com/L?tag=d_5453931m_1599c_&site=5453931&ad=1599';
 const CUSTOM_NEWS_TARGET = '_blank';
+let customNewsStore = null;
 
-// Кастомные новости загружаются из JSON
-let customNewsList = [];
-
-// Функция для получения индексов новостей по дню недели
-function getCustomNewsIndicesByDay() {
-  const now = new Date();
-  const jsDay = now.getDay(); // JS: 0 = Вс, 1 = Пн, ..., 6 = Сб
-  const mondayBasedDay = (jsDay + 6) % 7; // 0 = Пн, 1 = Вт, ..., 6 = Вс
-  return [mondayBasedDay, mondayBasedDay + 1];
-}
-
-async function loadCustomNews() {
-  const lang = getCurrentLang();
-  customNewsList = [];
+async function fetchJsonByCandidates(filename) {
   const cacheBust = Math.floor(Date.now() / (60 * 60 * 1000));
-  
-  const candidates = [
-    '/i18n/custom-news.json',
-    window.location.pathname.replace(/[^/]*$/, '') + 'i18n/custom-news.json',
-    'i18n/custom-news.json',
-    './i18n/custom-news.json'
-  ];
+  const candidates = [];
+  const newsScript = Array.from(document.scripts).find(s => s.src && s.src.includes('news-page.js'));
+  if (newsScript) {
+    const scriptBase = newsScript.src.replace(/\/[^/]*$/, '/');
+    candidates.push(scriptBase + `i18n/${filename}`);
+    candidates.push(scriptBase.replace(/\/js\/$/, '/') + `i18n/${filename}`);
+  }
 
-  let customNewsData = null;
+  candidates.push(window.location.origin + `/i18n/${filename}`);
+  candidates.push(window.location.pathname.replace(/[^/]*$/, '') + `i18n/${filename}`);
+  candidates.push(`i18n/${filename}`);
+  candidates.push(`./i18n/${filename}`);
+
+  console.log('Trying to load', filename, 'from candidates:', candidates);
+
   for (const url of candidates) {
     try {
+      console.log('Trying URL:', url);
       const separator = url.includes('?') ? '&' : '?';
       const res = await fetch(`${url}${separator}v=${cacheBust}`, { cache: 'no-store' });
-      if (!res.ok) continue;
-      customNewsData = await res.json();
-      break;
+      if (!res.ok) {
+        console.log('URL failed with status:', res.status, url);
+        continue;
+      }
+      console.log('Successfully loaded from:', url);
+      return await res.json();
     } catch (e) {
+      console.log('Error fetching from', url, ':', e.message);
       // try next
     }
   }
 
-  // Получаем индексы новостей по дню недели
-  const [idx1, idx2] = getCustomNewsIndicesByDay();
+  console.log('Failed to load', filename, 'from all candidates');
+  return null;
+}
 
-  if (customNewsData && customNewsData[lang] && Array.isArray(customNewsData[lang])) {
-    // Берем 2 новости по индексам дня недели
-    const newsArray = customNewsData[lang];
-    const items = [];
-    if (idx1 < newsArray.length) {
-      items.push(newsArray[idx1]);
-    }
-    if (idx2 < newsArray.length) {
-      items.push(newsArray[idx2]);
-    }
-    customNewsList = items.map(item => ({
-      ...item,
-      url: CUSTOM_NEWS_URL,
-      target: CUSTOM_NEWS_TARGET,
-      isCustom: true
-    }));
-  } else if (customNewsData && customNewsData['en'] && Array.isArray(customNewsData['en'])) {
-    const newsArray = customNewsData['en'];
-    const items = [];
-    if (idx1 < newsArray.length) {
-      items.push(newsArray[idx1]);
-    }
-    if (idx2 < newsArray.length) {
-      items.push(newsArray[idx2]);
-    }
-    customNewsList = items.map(item => ({
-      ...item,
-      url: CUSTOM_NEWS_URL,
-      target: CUSTOM_NEWS_TARGET,
-      isCustom: true
-    }));
+function normalizeCustomNewsItem(item) {
+  return {
+    title: item.title || '',
+    description: item.description || '',
+    imageUrl: item.imageUrl || '/images/news-image.webp',
+    url: CUSTOM_NEWS_LINK,
+    target: CUSTOM_NEWS_TARGET,
+    isCustom: true
+  };
+}
+
+async function getCustomNews(lang) {
+  console.log('getCustomNews called with lang:', lang);
+  if (!customNewsStore) {
+    console.log('Loading custom news store...');
+    customNewsStore = await fetchJsonByCandidates('custom-news.json') || {};
+    console.log('Custom news store loaded:', customNewsStore);
   }
+
+  const rawItems = customNewsStore[lang] || customNewsStore['en'] || [];
+  console.log('Raw items for lang', lang, ':', rawItems);
+  if (!Array.isArray(rawItems)) return [];
+  const normalized = rawItems.map(normalizeCustomNewsItem);
+  console.log('Normalized custom news:', normalized);
+  return normalized;
+}
+
+function getDayOfWeekIndices() {
+  // 0 = Воскресенье, 1 = Понедельник, ..., 6 = Суббота
+  const dayOfWeek = new Date().getDay();
+  console.log('Current day of week:', dayOfWeek);
+  
+  // Возвращаем индексы (0-based) двух новостей для текущего дня
+  // Воскресенье (0): 7 и 1 -> индексы 6 и 0
+  // Понедельник (1): 1 и 2 -> индексы 0 и 1
+  // Вторник (2): 2 и 3 -> индексы 1 и 2
+  // Среда (3): 3 и 4 -> индексы 2 и 3
+  // Четверг (4): 4 и 5 -> индексы 3 и 4
+  // Пятница (5): 5 и 6 -> индексы 4 и 5
+  // Суббота (6): 6 и 7 -> индексы 5 и 6
+  
+  if (dayOfWeek === 0) {
+    return [6, 0]; // Воскресенье: 7 и 1
+  }
+  return [dayOfWeek - 1, dayOfWeek]; // Остальные дни
+}
+
+function selectNewsForToday(customArticles) {
+  if (!Array.isArray(customArticles) || customArticles.length < 7) {
+    console.log('Not enough custom articles, expected 7, got', customArticles?.length || 0);
+    return customArticles.slice(0, 2); // Возвращаем первые 2, если их меньше
+  }
+  
+  const [idx1, idx2] = getDayOfWeekIndices();
+  const selected = [customArticles[idx1], customArticles[idx2]];
+  console.log('Selected news for today at indices', idx1, idx2, ':', selected.map(a => a.title));
+  return selected;
+}
+
+function mergeCustomNews(articles, customArticles) {
+  console.log('mergeCustomNews called with articles:', articles?.length || 0, 'custom:', customArticles?.length || 0);
+  if (!Array.isArray(customArticles) || customArticles.length === 0) {
+    console.log('No custom articles to merge');
+    return articles;
+  }
+  if (!Array.isArray(articles)) articles = [];
+  if (articles.some(a => a.isCustom)) {
+    console.log('Articles already contain custom news');
+    return articles;
+  }
+
+  // Выбираем только 2 новости для текущего дня
+  const selectedCustom = selectNewsForToday(customArticles);
+  const reservedPositions = [1, 6]; // вставляем на 2-ю и 7-ю позиции (0-based индексы)
+  const toInsert = selectedCustom.slice(0, reservedPositions.length);
+  console.log('Will insert custom articles at positions:', reservedPositions, 'items:', toInsert.length);
+  if (articles.length === 0) {
+    const result = toInsert.slice(0, MAX_NEWS_ITEMS);
+    console.log('No regular articles, returning custom only:', result.length);
+    return result;
+  }
+
+  const result = [];
+  let originalIndex = 0;
+  let customIndex = 0;
+
+  for (let i = 0; i < MAX_NEWS_ITEMS; i++) {
+    if (reservedPositions.includes(i) && customIndex < toInsert.length) {
+      result.push(toInsert[customIndex++]);
+      continue;
+    }
+
+    if (originalIndex < articles.length) {
+      result.push(articles[originalIndex++]);
+      continue;
+    }
+
+    if (customIndex < toInsert.length) {
+      result.push(toInsert[customIndex++]);
+      continue;
+    }
+
+    break;
+  }
+
+  console.log('Final merged result length:', result.length);
+  return result;
 }
 
 // Функции для работы с кешем
@@ -146,16 +223,16 @@ function getCachedData(key) {
   try {
     const cached = localStorage.getItem(key);
     if (!cached) return null;
-    
+
     const { data, timestamp } = JSON.parse(cached);
     const now = Date.now();
-    
+
     // Проверяем, не устарели ли данные
     if (now - timestamp > CACHE_DURATION_NEWS) {
       localStorage.removeItem(key);
       return null;
     }
-    
+
     return data;
   } catch (error) {
     console.error('Error reading cache:', error);
@@ -184,7 +261,7 @@ async function fetchNewsWithCache(url, cacheKey, options = {}) {
     console.log(`Using cached news for ${cacheKey}`);
     return cachedData;
   }
-  
+
   // Если данных в кеше нет или они устарели, делаем запрос
   console.log(`Fetching fresh news for ${cacheKey}`);
   try {
@@ -193,10 +270,10 @@ async function fetchNewsWithCache(url, cacheKey, options = {}) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const data = await response.json();
-    
+
     // Сохраняем в кеш
     setCachedData(cacheKey, data);
-    
+
     return data;
   } catch (error) {
     if (!quiet) {
@@ -234,50 +311,42 @@ function shuffleArray(array) {
 }
 
 function renderArticles(articles) {
+  console.log('renderArticles called with', articles?.length || 0, 'articles');
+  const customCount = articles?.filter(a => a.isCustom).length || 0;
+  console.log('Custom articles in render:', customCount);
   newsContainer.innerHTML = '';
   if (!articles || articles.length === 0) {
     newsContainer.innerHTML = '<p>No news</p>';
     return;
   }
 
-  // Ограничиваем количество новостей до MAX_NEWS_ITEMS
-  let limitedArticles = articles.slice(0, MAX_NEWS_ITEMS);
-  
-  // Добавляем кастомные новости на вторую и седьмую позиции (если они есть)
-  if (customNewsList.length >= 2 && limitedArticles.length >= 7 && !limitedArticles.some(article => article.isCustom)) {
-    limitedArticles = [
-      limitedArticles[0],
-      customNewsList[0],
-      ...limitedArticles.slice(1, 5),
-      customNewsList[1],
-      ...limitedArticles.slice(5)
-    ].slice(0, MAX_NEWS_ITEMS);
-  } else if (customNewsList.length >= 1 && limitedArticles.length >= 2 && !limitedArticles.some(article => article.isCustom)) {
-    limitedArticles = [
-      limitedArticles[0],
-      customNewsList[0],
-      ...limitedArticles.slice(1, MAX_NEWS_ITEMS - 1)
-    ];
-  }
-  
+  // Для страницы новостей не ограничиваем количество
+  const limitedArticles = articles.slice(0, MAX_NEWS_ITEMS);
+  console.log('Limited to', limitedArticles.length, 'articles');
+
   const wrapper = document.createElement('div');
   wrapper.className = 'news__list';
 
   limitedArticles.forEach((a, index) => {
     const card = document.createElement('article');
     card.className = 'news__item';
-    
+
     // Добавляем специальный класс для кастомной новости
     if (a.isCustom) {
       card.classList.add('news__item--custom');
+      console.log('Rendering custom article at position', index, ':', a.title);
     }
 
     const imageContainer = document.createElement('div');
     imageContainer.className = 'news__image';
 
     const img = document.createElement('img');
-    img.src = a.imageUrl || '/images/news-image.webp';
+    const imageUrl = a.imageUrl && String(a.imageUrl).trim() ? a.imageUrl : '';
+    img.src = imageUrl;
     img.alt = a.title || '';
+    img.onerror = () => {
+      img.src = '';
+    };
 
     const info = document.createElement('div');
     info.className = 'news__content';
@@ -309,16 +378,19 @@ async function loadAllNews() {
   if (!newsContainer) return;
   const lang = getCurrentLang();
   newsContainer.innerHTML = '<p>Loading all news...</p>';
-  
+
   // Пытаемся получить все новости из кеша
   const allCacheKey = `news_all_${lang}`;
   const cachedAllNews = getCachedData(allCacheKey);
   if (cachedAllNews) {
     console.log('Using cached all news');
-    renderArticles(cachedAllNews);
+    // Даже из кеша добавляем кастомные новости, если их нет
+    const customArticles = await getCustomNews(lang);
+    const finalCachedArticles = mergeCustomNews(cachedAllNews, customArticles);
+    renderArticles(finalCachedArticles);
     return;
   }
-  
+
   try {
     // Загружаем новости по всем спортивным темам
     const sportTopics = ['Football', 'Cricket', 'eSports', 'Basketball', 'Volleyball', 'Tennis', 'MMA', 'Highlights', 'Trending'];
@@ -332,35 +404,40 @@ async function loadAllNews() {
           `news_${lang}_${topic.toLowerCase().replace(/\s+/g, '_')}`,
           { quiet: true }
         );
+        console.log(`API response for ${topic}:`, data);
         allResults.push(data.articles || []);
       } catch (err) {
         allResults.push([]);
       }
     }
-    
+
     // Объединяем все новости в один массив
     let allArticles = allResults.flat();
-    
+
     // Удаляем дубликаты по URL
     const uniqueArticles = [];
     const seenUrls = new Set();
-    
+
     allArticles.forEach(article => {
       if (article.url && !seenUrls.has(article.url)) {
         seenUrls.add(article.url);
         uniqueArticles.push(article);
       }
     });
-    
+
     // Перемешиваем новости
     const shuffledArticles = shuffleArray(uniqueArticles);
-    
+
+    // Добавляем кастомные новости из отдельного документа
+    const customArticles = await getCustomNews(lang);
+    const finalArticles = mergeCustomNews(shuffledArticles, customArticles);
+
     // Кешируем объединенный результат
-    setCachedData(allCacheKey, shuffledArticles);
-    
+    setCachedData(allCacheKey, finalArticles);
+
     // Отображаем перемешанные новости
-    renderArticles(shuffledArticles);
-    
+    renderArticles(finalArticles);
+
   } catch (err) {
     console.error('Error loading all news:', err);
     newsContainer.innerHTML = '<p>Error loading news</p>';
@@ -382,24 +459,13 @@ async function loadNews(q = 'All') {
       cacheKey
     );
     
-    // Для отдельных тем тоже добавляем кастомные новости
-    let articles = data.articles || [];
-    if (customNewsList.length >= 2 && articles.length >= 7 && !articles.some(article => article.isCustom)) {
-      articles = [
-        articles[0],
-        customNewsList[0],
-        ...articles.slice(1, 5),
-        customNewsList[1],
-        ...articles.slice(5, MAX_NEWS_ITEMS - 1)
-      ];
-    } else if (customNewsList.length >= 1 && articles.length >= 2 && !articles.some(article => article.isCustom)) {
-      articles = [
-        articles[0],
-        customNewsList[0],
-        ...articles.slice(1, MAX_NEWS_ITEMS - 1)
-      ];
-    }
-    
+    console.log('Full API response for topic', q, ':', data);
+
+    // Даже из кеша добавляем кастомные новости, если их нет
+    const customArticles = await getCustomNews(lang);
+    const articles = mergeCustomNews(data.articles || [], customArticles);
+    console.log('Final articles for topic', q, ':', articles.length);
+
     renderArticles(articles);
   } catch (err) {
     console.error('Error loading news:', err);
@@ -411,8 +477,13 @@ async function loadNews(q = 'All') {
 document.addEventListener('DOMContentLoaded', async () => {
   currentActiveLang = getCurrentLang();
   await loadTopicsFromTranslations();
-  await loadCustomNews();
   createTopicButtons();
+
+  // Тест загрузки кастомных новостей
+  console.log('Testing custom news loading...');
+  const testCustom = await getCustomNews(currentActiveLang);
+  console.log('Test custom news result:', testCustom);
+
   // имитируем клик по первой теме (All)
   const firstBtn = topicsContainer.querySelector('button');
   if (firstBtn) {
@@ -424,8 +495,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Функция для принудительного обновления кеша новостей
 function clearNewsCache() {
-  Object.values(CACHE_KEYS_NEWS).forEach(key => {
-    localStorage.removeItem(key);
+  Object.keys(localStorage).forEach(k => {
+    if (k.startsWith('news_')) localStorage.removeItem(k);
   });
   console.log('News cache cleared');
   location.reload();
@@ -444,7 +515,6 @@ document.addEventListener('langChanged', async (e) => {
     if (k.startsWith('news_')) localStorage.removeItem(k);
   });
   await loadTopicsFromTranslations();
-  await loadCustomNews();
   createTopicButtons();
   const firstBtn = topicsContainer && topicsContainer.querySelector('button');
   if (firstBtn) firstBtn.click();

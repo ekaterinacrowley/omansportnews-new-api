@@ -1,6 +1,6 @@
 {
   "en": {
-    "header.logo": "Omansportsnew",
+    "header.logo": "Omansportsnews",
     "search.placeholder": "Type to search...",
     "header.app.reward": "Get your reward in the app",
     "header.app.button": "Get Bonus",
@@ -25,7 +25,7 @@
     "league.laliga": "La Liga",
     "see.more": "See more",
 
-    "main.title": "Omansportsnew",
+    "main.title": "Omansportsnews",
     "main.watch": "Watch",
 
     "news.heading": "Breaking Sports Headlines",
@@ -110,10 +110,11 @@
 
     "header.notifications.count": "3",
 
-    "site.title": "Omansportsnew"
+    "site.title": "Omansportsnews",
+    "site.keywords": "sports news, football news, live matches, match center, sports highlights, Oman sports, cricket news, basketball news, volleyball news, tennis news, esports news, MMA news"
   },
   "sa": {
-    "header.logo": "Omansportsnew",
+    "header.logo": "Omansportsnews",
     "search.placeholder": "اكتب للبحث...",
     "header.app.reward": "احصل على مكافأتك في التطبيق",
     "header.app.button": "احصل على المكافأة",
@@ -138,7 +139,7 @@
     "league.laliga": "لا ليغا",
     "see.more": "عرض المزيد",
 
-    "main.title": "Omansportsnew",
+    "main.title": "Omansportsnews",
     "main.watch": "مشاهدة",
 
     "news.heading": "أهم عناوين الرياضة",
@@ -223,10 +224,11 @@
 
     "header.notifications.count": "3",
 
-    "site.title": "Omansportsnew"
+    "site.title": "Omansportsnews",
+    "site.keywords": "أخبار الرياضة, أخبار كرة القدم, مباريات مباشرة, مركز المباريات, أبرز الأحداث الرياضية, رياضة عمان, أخبار الكريكيت, أخبار كرة السلة, أخبار الكرة الطائرة, أخبار التنس, أخبار الرياضات الإلكترونية, أخبار الفنون القتالية"
   },
   "india": {
-    "header.logo": "Omansportsnew",
+    "header.logo": "Omansportsnews",
     "search.placeholder": "खोजने के लिए टाइप करें...",
     "header.app.reward": "एप में अपना इनाम पाएं",
     "header.app.button": "बोनस प्राप्त करें",
@@ -251,7 +253,7 @@
     "league.laliga": "ला लीगा",
     "see.more": "और देखें",
 
-    "main.title": "Omansportsnew",
+    "main.title": "Omansportsnews",
     "main.watch": "देखें",
 
     "news.heading": "ब्रेकिंग स्पोर्ट्स हेडलाइंस",
@@ -336,10 +338,11 @@
 
     "header.notifications.count": "3",
 
-    "site.title": "Omansportsnew"
+    "site.title": "Omansportsnews",
+    "site.keywords": "खेल समाचार, फुटबॉल समाचार, लाइव मैच, मैच सेंटर, खेल हाइलाइट्स, ओमान खेल, क्रिकेट समाचार, बास्केटबॉल समाचार, वॉलीबॉल समाचार, टेनिस समाचार, ईस्पोर्ट्स समाचार, MMA समाचार"
   },
   "bangladesh": {
-    "header.logo": "Omansportsnew",
+    "header.logo": "Omansportsnews",
     "search.placeholder": "অনুসন্ধান করতে লিখুন...",
     "header.app.reward": "অ্যাপে আপনার রিওয়ার্ড পান",
     "header.app.button": "বোনাস পান",
@@ -364,7 +367,7 @@
     "league.laliga": "লা লিগা",
     "see.more": "আরও দেখুন",
 
-    "main.title": "Omansportsnew",
+    "main.title": "Omansportsnews",
     "main.watch": "দেখুন",
 
     "news.heading": "সর্বশেষ ক্রীড়া শিরোনাম",
@@ -449,10 +452,11 @@
 
     "header.notifications.count": "3",
 
-    "site.title": "Omansportsnew"
+    "site.title": "Omansportsnews",
+    "site.keywords": "ক্রীড়া সংবাদ, ফুটবল সংবাদ, লাইভ ম্যাচ, ম্যাচ সেন্টার, ক্রীড়া হাইলাইটস, ওমান ক্রীড়া, ক্রিকেট সংবাদ, বাস্কেটবল সংবাদ, ভলিবল সংবাদ, টেনিস সংবাদ, ইস্পোর্টস সংবাদ, MMA সংবাদ"
   },
   "pakistan": {
-    "header.logo": "Omansportsnew",
+    "header.logo": "Omansportsnews",
     "search.placeholder": "تلاش کے لیے لکھیں...",
     "header.app.reward": "ایپ میں اپنا انعام حاصل کریں",
     "header.app.button": "بونس حاصل کریں",
@@ -477,7 +481,7 @@
     "league.laliga": "لا لیگا",
     "see.more": "مزید دیکھیں",
 
-    "main.title": "Omansportsnew",
+    "main.title": "Omansportsnews",
     "main.watch": "دیکھیں",
 
     "news.heading": "اہم کھیل کی خبریں",
@@ -561,6 +565,7 @@
 
     "header.notifications.count": "3",
 
-    "site.title": "Omansportsnew"
+    "site.title": "Omansportsnews",
+    "site.keywords": "کھیل کی خبریں, فٹ بال خبریں, براہِ راست میچ, میچ سینٹر, کھیل کے اہم لمحات, عمان کھیل, کرکٹ خبریں, باسکٹ بال خبریں, والی بال خبریں, ٹینس خبریں, ای اسپورٹس خبریں, MMA خبریں"
   }
 }

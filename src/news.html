@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title data-i18n="site.title">Omansportsnews - News</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Latest sports headlines, football updates, match previews and trending stories from Oman and global leagues.">
+<meta name="keywords" data-i18n-content="site.keywords" content="sports news, football news, live matches, match center, sports highlights, Oman sports, cricket news, basketball news, volleyball news, tennis news, esports news, MMA news">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+<meta name="author" content="Omansportsnews">
+<link rel="canonical" href="https://omansportsnews.com/news.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Omansportsnews">
+<meta property="og:title" content="Omansportsnews - Latest Sports News">
+<meta property="og:description" content="Latest sports headlines, football updates, match previews and trending stories from Oman and global leagues.">
+<meta property="og:url" content="https://omansportsnews.com/news.html">
+<meta property="og:image" content="https://omansportsnews.com/images/favicon-light.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Omansportsnews - Latest Sports News">
+<meta name="twitter:description" content="Latest sports headlines, football updates, match previews and trending stories from Oman and global leagues.">
+<meta name="twitter:image" content="https://omansportsnews.com/images/favicon-light.png">
+<link rel="icon" href="images/favicon-light.png" id="favicon">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="adaptive.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://omansportsnews.com/#website",
+      "url": "https://omansportsnews.com/",
+      "name": "Omansportsnews",
+      "inLanguage": "en"
+    },
+    {
+      "@type": "NewsMediaOrganization",
+      "@id": "https://omansportsnews.com/#organization",
+      "name": "Omansportsnews",
+      "url": "https://omansportsnews.com/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://omansportsnews.com/images/favicon-light.png"
+      }
+    },
+    {
+      "@type": "CollectionPage",
+      "@id": "https://omansportsnews.com/news.html#webpage",
+      "url": "https://omansportsnews.com/news.html",
+      "name": "Omansportsnews - Latest Sports News",
+      "isPartOf": {
+        "@id": "https://omansportsnews.com/#website"
+      },
+      "about": {
+        "@type": "Thing",
+        "name": "Sports news"
+      },
+      "inLanguage": "en"
+    }
+  ]
+}
+</script>
+</head>
+<body data-theme="light">
+ <include src="header.html"></include> 
+ <main class="main-width">
+  <include src="sidebar.html"></include>
+  <div class="content">
+      <div class="container"> 
+        <a id="news"></a>
+        <include src="news.html"></include>
+      </div>
+  </div>
+ </main>
+ <include src="app-popup.html"></include>
+<include src="footer.html"></include>
+<include src="bottom-panel.html"></include>
+<include src="redirect-popup.html"></include>
+<!-- Подключаем вынесённый JS -->
+ <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
+<script src="js/sports.js" defer></script>
+<script src="js/news-page.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.10.2/lottie.min.js"></script>
+
+</body>
+</html>

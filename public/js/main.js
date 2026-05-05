@@ -399,6 +399,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const text = (translations[lang] && translations[lang][key]) || null;
             if (text !== null && 'placeholder' in el) el.placeholder = text;
         });
+
+        // Применяем значения для произвольных атрибутов content (например, meta keywords)
+        document.querySelectorAll('[data-i18n-content]').forEach(el => {
+            const key = el.getAttribute('data-i18n-content');
+            const text = (translations[lang] && translations[lang][key]) || null;
+            if (text !== null) el.setAttribute('content', text);
+        });
         // Устанавливаем атрибут dir для поддержки ассистивных технологий и правильного рендеринга
         try {
             const rtlLangs = new Set(['sa', 'pakistan']);

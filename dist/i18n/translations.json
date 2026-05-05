@@ -1,6 +1,6 @@
 {
   "en": {
-    "header.logo": "Omansportsnew",
+    "header.logo": "Omansportsnews",
     "search.placeholder": "Type to search...",
     "header.app.reward": "Get your reward in the app",
     "header.app.button": "Get Bonus",
@@ -25,7 +25,7 @@
     "league.laliga": "La Liga",
     "see.more": "See more",
 
-    "main.title": "Omansportsnew",
+    "main.title": "Omansportsnews",
     "main.watch": "Watch",
 
     "news.heading": "Breaking Sports Headlines",
@@ -104,10 +104,10 @@
 
     "header.notifications.count": "3",
 
-    "site.title": "Omansportsnew"
+    "site.title": "Omansportsnews"
   },
   "sa": {
-    "header.logo": "Omansportsnew",
+    "header.logo": "Omansportsnews",
     "search.placeholder": "اكتب للبحث...",
     "header.app.reward": "احصل على مكافأتك في التطبيق",
     "header.app.button": "احصل على المكافأة",
@@ -132,7 +132,7 @@
     "league.laliga": "لا ليغا",
     "see.more": "عرض المزيد",
 
-    "main.title": "Omansportsnew",
+    "main.title": "Omansportsnews",
     "main.watch": "مشاهدة",
 
     "news.heading": "أهم عناوين الرياضة",
@@ -211,10 +211,10 @@
 
     "header.notifications.count": "3",
 
-    "site.title": "Omansportsnew"
+    "site.title": "Omansportsnews"
   },
   "india": {
-    "header.logo": "Omansportsnew",
+    "header.logo": "Omansportsnews",
     "search.placeholder": "खोजने के लिए टाइप करें...",
     "header.app.reward": "एप में अपना इनाम पाएं",
     "header.app.button": "बोनस प्राप्त करें",
@@ -239,7 +239,7 @@
     "league.laliga": "ला लीगा",
     "see.more": "और देखें",
 
-    "main.title": "Omansportsnew",
+    "main.title": "Omansportsnews",
     "main.watch": "देखें",
 
     "news.heading": "ब्रेकिंग स्पोर्ट्स हेडलाइंस",
@@ -318,10 +318,10 @@
 
     "header.notifications.count": "3",
 
-    "site.title": "Omansportsnew"
+    "site.title": "Omansportsnews"
   },
   "bangladesh": {
-    "header.logo": "Omansportsnew",
+    "header.logo": "Omansportsnews",
     "search.placeholder": "অনুসন্ধান করতে লিখুন...",
     "header.app.reward": "অ্যাপে আপনার রিওয়ার্ড পান",
     "header.app.button": "বোনাস পান",
@@ -346,7 +346,7 @@
     "league.laliga": "লা লিগা",
     "see.more": "আরও দেখুন",
 
-    "main.title": "Omansportsnew",
+    "main.title": "Omansportsnews",
     "main.watch": "দেখুন",
 
     "news.heading": "সর্বশেষ ক্রীড়া শিরোনাম",
@@ -425,10 +425,10 @@
 
     "header.notifications.count": "3",
 
-    "site.title": "Omansportsnew"
+    "site.title": "Omansportsnews"
   },
   "pakistan": {
-    "header.logo": "Omansportsnew",
+    "header.logo": "Omansportsnews",
     "search.placeholder": "تلاش کے لیے لکھیں...",
     "header.app.reward": "ایپ میں اپنا انعام حاصل کریں",
     "header.app.button": "بونس حاصل کریں",
@@ -453,7 +453,7 @@
     "league.laliga": "لا لیگا",
     "see.more": "مزید دیکھیں",
 
-    "main.title": "Omansportsnew",
+    "main.title": "Omansportsnews",
     "main.watch": "دیکھیں",
 
     "news.heading": "اہم کھیل کی خبریں",
@@ -531,6 +531,6 @@
 
     "header.notifications.count": "3",
 
-    "site.title": "Omansportsnew"
+    "site.title": "Omansportsnews"
   }
 }

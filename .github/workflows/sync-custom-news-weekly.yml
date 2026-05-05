@@ -1,0 +1,45 @@
+name: Sync Custom News Weekly
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 1'
+
+jobs:
+  sync-custom-news:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync custom news from sheet
+        run: npm run sync:custom-news
+        env:
+          CUSTOM_NEWS_SHEET_ID: 1TIrKdVNGt5NDs6gkR9nJgcUiIkDrW8uTG8UUXwSd4LE
+          CUSTOM_NEWS_SHEET_GID: 0
+          CUSTOM_NEWS_COUNTRY: Oman
+          CUSTOM_NEWS_MAX_ITEMS: 8
+          CUSTOM_NEWS_LANG_COLUMN: 6
+          CUSTOM_NEWS_LANGS: en,sa,india,pakistan,bangladesh
+
+      - name: Commit and push if changed
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add src/i18n/custom-news.json public/i18n/custom-news.json
+            git commit -m "chore: weekly sync custom news from Google Sheet"
+            git push
+          else
+            echo "No changes to commit"
+          fi

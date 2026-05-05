@@ -63,16 +63,82 @@ const CACHE_KEYS_NEWS = {
   NEWS_HIGHLIGHTS: 'news_highlights',
   NEWS_TRENDING: 'news_trending'
 };
+// Единая ссылка и таргет для всех кастомных новостей
+const CUSTOM_NEWS_URL = 'https://reffpa.com/L?tag=d_5453931m_1599c_&site=5453931&ad=1599';
+const CUSTOM_NEWS_TARGET = '_blank';
 
-// Кастомная новость
-const customNews = {
-  title: "Lions look to dominate the playoffs",
-  description: "The victory over the Bills put the Lions in a comfortable position to make the playoffs",
-  url: "https://refpa58144.com/L?tag=d_4980367m_1599c_&site=4980367&ad=1599",
-  target: "_blank",
-  imageUrl: "images/news-image.webp", 
-  isCustom: true
-};
+// Кастомные новости загружаются из JSON
+let customNewsList = [];
+
+// Функция для получения индексов новостей по дню недели
+function getCustomNewsIndicesByDay() {
+  const now = new Date();
+  const jsDay = now.getDay(); // JS: 0 = Вс, 1 = Пн, ..., 6 = Сб
+  const mondayBasedDay = (jsDay + 6) % 7; // 0 = Пн, 1 = Вт, ..., 6 = Вс
+  return [mondayBasedDay, mondayBasedDay + 1];
+}
+
+async function loadCustomNews() {
+  const lang = getCurrentLang();
+  customNewsList = [];
+  const cacheBust = Math.floor(Date.now() / (60 * 60 * 1000));
+  
+  const candidates = [
+    '/i18n/custom-news.json',
+    window.location.pathname.replace(/[^/]*$/, '') + 'i18n/custom-news.json',
+    'i18n/custom-news.json',
+    './i18n/custom-news.json'
+  ];
+
+  let customNewsData = null;
+  for (const url of candidates) {
+    try {
+      const separator = url.includes('?') ? '&' : '?';
+      const res = await fetch(`${url}${separator}v=${cacheBust}`, { cache: 'no-store' });
+      if (!res.ok) continue;
+      customNewsData = await res.json();
+      break;
+    } catch (e) {
+      // try next
+    }
+  }
+
+  // Получаем индексы новостей по дню недели
+  const [idx1, idx2] = getCustomNewsIndicesByDay();
+
+  if (customNewsData && customNewsData[lang] && Array.isArray(customNewsData[lang])) {
+    // Берем 2 новости по индексам дня недели
+    const newsArray = customNewsData[lang];
+    const items = [];
+    if (idx1 < newsArray.length) {
+      items.push(newsArray[idx1]);
+    }
+    if (idx2 < newsArray.length) {
+      items.push(newsArray[idx2]);
+    }
+    customNewsList = items.map(item => ({
+      ...item,
+      url: CUSTOM_NEWS_URL,
+      target: CUSTOM_NEWS_TARGET,
+      isCustom: true
+    }));
+  } else if (customNewsData && customNewsData['en'] && Array.isArray(customNewsData['en'])) {
+    const newsArray = customNewsData['en'];
+    const items = [];
+    if (idx1 < newsArray.length) {
+      items.push(newsArray[idx1]);
+    }
+    if (idx2 < newsArray.length) {
+      items.push(newsArray[idx2]);
+    }
+    customNewsList = items.map(item => ({
+      ...item,
+      url: CUSTOM_NEWS_URL,
+      target: CUSTOM_NEWS_TARGET,
+      isCustom: true
+    }));
+  }
+}
 
 // Функции для работы с кешем
 function getCachedData(key) {
@@ -176,11 +242,19 @@ function renderArticles(articles) {
   // Ограничиваем количество новостей до MAX_NEWS_ITEMS
   let limitedArticles = articles.slice(0, MAX_NEWS_ITEMS);
   
-  // Добавляем кастомную новость на вторую позицию (если есть как минимум 2 новости)
-  if (limitedArticles.length >= 2 && !limitedArticles.some(article => article.isCustom)) {
+  // Добавляем кастомные новости на вторую и седьмую позиции (если они есть)
+  if (customNewsList.length >= 2 && limitedArticles.length >= 7 && !limitedArticles.some(article => article.isCustom)) {
     limitedArticles = [
       limitedArticles[0],
-      customNews,
+      customNewsList[0],
+      ...limitedArticles.slice(1, 5),
+      customNewsList[1],
+      ...limitedArticles.slice(5)
+    ].slice(0, MAX_NEWS_ITEMS);
+  } else if (customNewsList.length >= 1 && limitedArticles.length >= 2 && !limitedArticles.some(article => article.isCustom)) {
+    limitedArticles = [
+      limitedArticles[0],
+      customNewsList[0],
       ...limitedArticles.slice(1, MAX_NEWS_ITEMS - 1)
     ];
   }
@@ -201,7 +275,7 @@ function renderArticles(articles) {
     imageContainer.className = 'news__image';
 
     const img = document.createElement('img');
-    img.src = a.imageUrl || 'https://via.placeholder.com/120x80?text=no+image';
+    img.src = a.imageUrl || '/images/news-image.webp';
     img.alt = a.title || '';
 
     const info = document.createElement('div');
@@ -307,12 +381,20 @@ async function loadNews(q = 'All') {
       cacheKey
     );
     
-    // Для отдельных тем тоже добавляем кастомную новость
+    // Для отдельных тем тоже добавляем кастомные новости
     let articles = data.articles || [];
-    if (articles.length >= 2 && !articles.some(article => article.isCustom)) {
+    if (customNewsList.length >= 2 && articles.length >= 7 && !articles.some(article => article.isCustom)) {
       articles = [
         articles[0],
-        customNews,
+        customNewsList[0],
+        ...articles.slice(1, 5),
+        customNewsList[1],
+        ...articles.slice(5, MAX_NEWS_ITEMS - 1)
+      ];
+    } else if (customNewsList.length >= 1 && articles.length >= 2 && !articles.some(article => article.isCustom)) {
+      articles = [
+        articles[0],
+        customNewsList[0],
         ...articles.slice(1, MAX_NEWS_ITEMS - 1)
       ];
     }
@@ -328,6 +410,7 @@ async function loadNews(q = 'All') {
 document.addEventListener('DOMContentLoaded', async () => {
   currentActiveLang = getCurrentLang();
   await loadTopicsFromTranslations();
+  await loadCustomNews();
   createTopicButtons();
   // имитируем клик по первой теме (All)
   const firstBtn = topicsContainer.querySelector('button');
@@ -360,6 +443,7 @@ document.addEventListener('langChanged', async (e) => {
     if (k.startsWith('news_')) localStorage.removeItem(k);
   });
   await loadTopicsFromTranslations();
+  await loadCustomNews();
   createTopicButtons();
   const firstBtn = topicsContainer && topicsContainer.querySelector('button');
   if (firstBtn) firstBtn.click();

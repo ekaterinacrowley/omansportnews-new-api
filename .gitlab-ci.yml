@@ -1,0 +1,19 @@
+stages:
+  - sync
+
+sync-custom-news:
+  stage: sync
+  image: node:20-slim
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  script:
+    - npm ci --ignore-scripts
+    - node scripts/sync-custom-news-from-sheet.js
+    - |
+      git config user.email "ci@gitlab.com"
+      git config user.name "GitLab CI"
+      git add public/i18n/custom-news.json src/i18n/custom-news.json
+      git diff --cached --quiet || git commit -m "chore: sync custom news from Google Sheets [skip ci]"
+      git push "https://oauth2:${CI_BOT_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" HEAD:${CI_COMMIT_BRANCH}
+  only:
+    - main
